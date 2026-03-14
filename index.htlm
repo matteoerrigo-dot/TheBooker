@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>The Booker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+input,textarea,select{font-size:16px!important}
+button{touch-action:manipulation;cursor:pointer;border:none;background:none;font-family:inherit}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:#c8102e;border-radius:3px}
+@font-face{font-family:'Anton';font-style:normal;font-weight:400;src:local('Anton'),local('Anton-Regular')}
+
+/* Animations */
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-6px)}}
+@keyframes shakeIn{0%{transform:translateX(-8px)}25%{transform:translateX(8px)}50%{transform:translateX(-4px)}75%{transform:translateX(4px)}100%{transform:translateX(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes glow{0%,100%{opacity:.5}50%{opacity:1}}
+
+.slide-up{animation:slideUp .35s ease forwards}
+.shake{animation:shakeIn .5s ease}
+.fade-in{animation:fadeIn .3s ease}
+
+#app{min-height:100vh}
+
+/* Sheet overlay */
+.sheet-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center}
+.sheet-inner{background:#000;border:1px solid #222;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;animation:slideUp .3s ease}
+.sheet-handle{width:36px;height:4px;background:#333;border-radius:2px;margin:12px auto 0}
+.sheet-header{position:sticky;top:0;z-index:10;padding:8px 16px 12px}
+.sheet-body{padding:14px}
+
+/* Bottom FAB area */
+.fab-roster{position:fixed;bottom:20px;right:16px;z-index:80;width:52px;height:52px;border-radius:50%;font-size:20px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+
+/* Timeline scrollable */
+.timeline-wrap{overflow-x:auto;padding-bottom:8px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
+.timeline{display:flex;gap:3px;min-width:max-content}
+
+/* Grid helpers */
+.grid-auto{display:grid;gap:6px}
+.flex-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.flex-row{display:flex;align-items:center;gap:8px}
+
+/* Action grid desktop */
+.action-grid-header{display:grid;grid-template-columns:150px 1fr 80px;gap:6px;margin-bottom:6px}
+.action-grid-row{display:grid;grid-template-columns:150px 1fr 80px;gap:6px;margin-bottom:5px;align-items:stretch}
+
+/* Stars */
+.stars-wrap{display:inline-flex;gap:1px;line-height:1}
+
+/* Loading dots */
+.dots-wrap{display:flex;justify-content:center;gap:5px;margin-top:10px}
+.dot{width:5px;height:5px;border-radius:50%;animation:bounce .7s infinite alternate}
+.dot:nth-child(2){animation-delay:.15s}
+.dot:nth-child(3){animation-delay:.3s}
+
+/* Safe area */
+.safe-bottom{padding-bottom:env(safe-area-inset-bottom,16px)}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+// DATA & LOGIC (from v9)
+// ═══════════════════════════════════════════════════════
+
+const T={
+WWE:{id:“WWE”,badge:“WWE”,tagline:“THEN. NOW. FOREVER.”,font:”‘Anton’,‘Impact’,sans-serif”,accent:”#c8102e”,alt:”#f5c518”,glow:”#c8102e”,bg:”#070005”,grad:“radial-gradient(ellipse 80% 50% at 15% 0%,#250010 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 85% 100%,#180006 0%,transparent 60%)”,surface:”#0d0006”,border:”#240010”},
+AEW:{id:“AEW”,badge:“AEW”,tagline:“ELITE. EVERY. NIGHT.”,font:”‘Barlow Condensed’,‘Impact’,sans-serif”,accent:”#00c8ff”,alt:”#8b2fff”,glow:”#00c8ff”,bg:”#00040e”,grad:“radial-gradient(ellipse 80% 50% at 15% 0%,#001828 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 85% 100%,#080018 0%,transparent 60%)”,surface:”#000812”,border:”#001220”},
+};
+
+const ROSTERS={
+WWE:[
+// ── Main Event ──
+{id:“cody”,    name:“Cody Rhodes”,      short:“Cody”,     role:“face”,   tier:“main-event”, pop:96,heat:94,mom:90, title:“WWE Championship”,    status:“active”,feuds:[“gunther”,“punk”],    allies:[“sami”,“jey”]},
+{id:“gunther”, name:“Gunther”,          short:“Gunther”,  role:“heel”,   tier:“main-event”, pop:94,heat:97,mom:91, title:“World Heavyweight”,   status:“active”,feuds:[“cody”,“owens”],      allies:[]},
+{id:“punk”,    name:“CM Punk”,          short:“Punk”,     role:“face”,   tier:“main-event”, pop:95,heat:93,mom:87, title:null,                  status:“active”,feuds:[“cody”,“drew”],        allies:[]},
+{id:“roman”,   name:“Roman Reigns”,     short:“Roman”,    role:“tweener”,tier:“main-event”, pop:94,heat:90,mom:82, title:null,                  status:“active”,feuds:[“solo”],              allies:[“jey”,“sami”]},
+{id:“seth”,    name:“Seth Rollins”,     short:“Seth”,     role:“tweener”,tier:“main-event”, pop:92,heat:91,mom:86, title:null,                  status:“active”,feuds:[“gunther”,“punk”],     allies:[]},
+{id:“sami”,    name:“Sami Zayn”,        short:“Sami”,     role:“face”,   tier:“main-event”, pop:91,heat:89,mom:82, title:null,                  status:“active”,feuds:[],                    allies:[“cody”,“jey”,“roman”]},
+// ── Rising ──
+{id:“jey”,     name:“Jey Uso”,          short:“Jey”,      role:“face”,   tier:“rising”,     pop:92,heat:91,mom:88, title:“Intercontinental”,    status:“active”,feuds:[“solo”],              allies:[“roman”,“sami”,“cody”]},
+{id:“breakker”,name:“Bron Breakker”,    short:“Breakker”, role:“heel”,   tier:“rising”,     pop:76,heat:82,mom:95, title:null,                  status:“active”,feuds:[“jey”],               allies:[]},
+{id:“solo”,    name:“Solo Sikoa”,       short:“Solo”,     role:“heel”,   tier:“rising”,     pop:82,heat:90,mom:85, title:null,                  status:“active”,feuds:[“roman”,“jey”],        allies:[“fatu”]},
+{id:“fatu”,    name:“Jacob Fatu”,       short:“Fatu”,     role:“heel”,   tier:“rising”,     pop:74,heat:86,mom:92, title:null,                  status:“active”,feuds:[],                    allies:[“solo”]},
+{id:“owens”,   name:“Kevin Owens”,      short:“KO”,       role:“heel”,   tier:“rising”,     pop:88,heat:90,mom:84, title:null,                  status:“active”,feuds:[“gunther”,“cody”],     allies:[]},
+{id:“knight”,  name:“LA Knight”,        short:“Knight”,   role:“face”,   tier:“rising”,     pop:90,heat:88,mom:86, title:null,                  status:“active”,feuds:[“breakker”],          allies:[]},
+{id:“drew”,    name:“Drew McIntyre”,    short:“Drew”,     role:“heel”,   tier:“rising”,     pop:86,heat:88,mom:83, title:null,                  status:“active”,feuds:[“punk”,“seth”],        allies:[]},
+{id:“dom”,     name:“Dominik Mysterio”, short:“Dom”,      role:“heel”,   tier:“rising”,     pop:78,heat:93,mom:76, title:null,                  status:“active”,feuds:[“rey”],               allies:[“priest”]},
+{id:“priest”,  name:“Damian Priest”,    short:“Priest”,   role:“heel”,   tier:“rising”,     pop:84,heat:87,mom:79, title:null,                  status:“active”,feuds:[],                    allies:[“dom”]},
+{id:“logan”,   name:“Logan Paul”,       short:“Logan”,    role:“heel”,   tier:“rising”,     pop:80,heat:91,mom:80, title:“US Championship”,     status:“active”,feuds:[“knight”],            allies:[]},
+// ── Midcard ──
+{id:“rey”,     name:“Rey Mysterio”,     short:“Rey”,      role:“face”,   tier:“midcard”,    pop:85,heat:83,mom:70, title:null,                  status:“active”,feuds:[“dom”],               allies:[]},
+{id:“aj”,      name:“AJ Styles”,        short:“AJ”,       role:“face”,   tier:“midcard”,    pop:86,heat:84,mom:73, title:null,                  status:“active”,feuds:[],                    allies:[]},
+{id:“braun”,   name:“Braun Strowman”,   short:“Braun”,    role:“face”,   tier:“midcard”,    pop:82,heat:80,mom:78, title:null,                  status:“active”,feuds:[“fatu”],              allies:[]},
+{id:“riddle”,  name:“Matt Riddle”,      short:“Riddle”,   role:“face”,   tier:“midcard”,    pop:74,heat:73,mom:79, title:null,                  status:“active”,feuds:[],                    allies:[]},
+],
+AEW:[
+// ── Main Event ──
+{id:“moxley”,   name:“Jon Moxley”,          short:“Moxley”,   role:“heel”,   tier:“main-event”, pop:92,heat:96,mom:90, title:“AEW World”,          status:“active”,feuds:[“danielson”,“ospreay”],allies:[“bcc”]},
+{id:“ospreay”,  name:“Will Ospreay”,         short:“Ospreay”,  role:“face”,   tier:“main-event”, pop:92,heat:91,mom:95, title:null,                 status:“active”,feuds:[“moxley”,“mjf”],      allies:[]},
+{id:“swerve”,   name:“Swerve Strickland”,    short:“Swerve”,   role:“face”,   tier:“main-event”, pop:89,heat:91,mom:93, title:null,                 status:“active”,feuds:[“moxley”,“mjf”],      allies:[]},
+{id:“mjf”,      name:“MJF”,                  short:“MJF”,      role:“heel”,   tier:“main-event”, pop:91,heat:97,mom:86, title:null,                 status:“active”,feuds:[“ospreay”,“swerve”],   allies:[]},
+{id:“danielson”,name:“Bryan Danielson”,      short:“Dragon”,   role:“face”,   tier:“main-event”, pop:93,heat:92,mom:79, title:null,                 status:“active”,feuds:[“moxley”],            allies:[“claudio”]},
+{id:“omega”,    name:“Kenny Omega”,          short:“Omega”,    role:“tweener”,tier:“main-event”, pop:90,heat:89,mom:85, title:“TBS Championship”,   status:“active”,feuds:[],                    allies:[“bucks”]},
+// ── Rising ──
+{id:“jaywhite”, name:“Jay White”,            short:“Switchblade”,role:“heel”, tier:“rising”,     pop:86,heat:88,mom:87, title:null,                 status:“active”,feuds:[“hangman”,“swerve”],   allies:[]},
+{id:“takeshita”,name:“Konosuke Takeshita”,   short:“Takeshita”,role:“heel”,   tier:“rising”,     pop:82,heat:84,mom:93, title:“Continental”,        status:“active”,feuds:[“ospreay”],           allies:[“don”]},
+{id:“hangman”,  name:“Hangman Page”,         short:“Hangman”,  role:“face”,   tier:“rising”,     pop:86,heat:85,mom:81, title:null,                 status:“active”,feuds:[“jaywhite”],          allies:[]},
+{id:“hook”,     name:“Hook”,                 short:“Hook”,     role:“face”,   tier:“rising”,     pop:85,heat:87,mom:89, title:“FTW Championship”,   status:“active”,feuds:[“hobbs”],             allies:[]},
+{id:“claudio”,  name:“Claudio Castagnoli”,   short:“Claudio”,  role:“face”,   tier:“rising”,     pop:84,heat:84,mom:82, title:null,                 status:“active”,feuds:[],                    allies:[“danielson”]},
+{id:“samoa”,    name:“Samoa Joe”,            short:“Joe”,      role:“heel”,   tier:“rising”,     pop:87,heat:89,mom:81, title:null,                 status:“active”,feuds:[“hook”,“hangman”],      allies:[]},
+// ── Midcard ──
+{id:“adamcole”, name:“Adam Cole”,            short:“Cole”,     role:“face”,   tier:“midcard”,    pop:83,heat:84,mom:82, title:null,                 status:“active”,feuds:[],                    allies:[]},
+{id:“penta”,    name:“Penta El Zero Miedo”,  short:“Penta”,    role:“face”,   tier:“midcard”,    pop:82,heat:83,mom:86, title:null,                 status:“active”,feuds:[],                    allies:[]},
+{id:“jericho”,  name:“Chris Jericho”,        short:“Jericho”,  role:“heel”,   tier:“midcard”,    pop:85,heat:87,mom:72, title:null,                 status:“active”,feuds:[],                    allies:[]},
+{id:“starks”,   name:“Ricky Starks”,         short:“Starks”,   role:“tweener”,tier:“midcard”,    pop:81,heat:83,mom:83, title:null,                 status:“active”,feuds:[],                    allies:[]},
+{id:“hobbs”,    name:“Powerhouse Hobbs”,     short:“Hobbs”,    role:“heel”,   tier:“midcard”,    pop:77,heat:82,mom:88, title:null,                 status:“active”,feuds:[“hook”],              allies:[]},
+{id:“sammy”,    name:“Sammy Guevara”,        short:“Sammy”,    role:“tweener”,tier:“midcard”,    pop:73,heat:77,mom:78, title:null,                 status:“active”,feuds:[],                    allies:[]},
+],
+};
+
+const ACTS_WWE={
+promo:{label:“Promo”,icon:“🎤”,face:[
+{id:“pf1”,label:“Promo de défi”,desc:“Défi direct — électrique”,mom:6,heat:4},
+{id:“pf2”,label:“Promo émotion”,desc:“Récit perso — foule investie”,mom:8,heat:2},
+{id:“pf3”,label:“Réponse héroïque”,desc:“Counter heel parfait”,mom:5,heat:6},
+{id:“pf4”,label:“Appel à la foule”,desc:“Connexion maximale”,mom:4,heat:8},
+{id:“pf5”,label:“Discours champion”,desc:“Autorité du face”,mom:7,heat:3},
+],heel:[
+{id:“ph1”,label:“Promo arrogante”,desc:“Supériorité — heat massif”,mom:5,heat:9},
+{id:“ph2”,label:“Insulte la foule”,desc:“Rage dans l’arena”,mom:3,heat:12},
+{id:“ph3”,label:“Manipulation”,desc:“Retourne la situation”,mom:7,heat:7},
+{id:“ph4”,label:“Trahison verbale”,desc:“Révèle la trahison”,mom:9,heat:8},
+{id:“ph5”,label:“Provocation ciblée”,desc:“Attaque personnelle”,mom:5,heat:8},
+]},
+match:{label:“Match”,icon:“⚔️”,face:[
+{id:“mf1”,label:“Victoire propre”,desc:“Clean win — crédibilité”,mom:10,heat:5},
+{id:“mf2”,label:“Match 5 étoiles”,desc:“Banger — standing ovation”,mom:12,heat:8},
+{id:“mf3”,label:“Comeback dramatique”,desc:“Retournement — pop énorme”,mom:14,heat:10},
+{id:“mf4”,label:“Défaite courageuse”,desc:“Perd mais gagne le respect”,mom:4,heat:7},
+{id:“mf5”,label:“Victoire sur heel major”,desc:“Scalp — ascension validée”,mom:15,heat:6},
+],heel:[
+{id:“mh1”,label:“Victoire sale”,desc:“Triche — heat parfait”,mom:6,heat:11},
+{id:“mh2”,label:“Squash match”,desc:“Destruction totale”,mom:8,heat:7},
+{id:“mh3”,label:“Victoire volée”,desc:“Pin contesté”,mom:5,heat:12},
+{id:“mh4”,label:“Assault post-match”,desc:“Frappe après la cloche”,mom:7,heat:14},
+{id:“mh5”,label:“Domination totale”,desc:“Face humilié”,mom:9,heat:10},
+]},
+segment:{label:“Segment”,icon:“🎬”,face:[
+{id:“sf1”,label:“Sauvetage allié”,desc:“Rescousse — pop immédiat”,mom:7,heat:8},
+{id:“sf2”,label:“Révélation choc”,desc:“Expose une vérité”,mom:10,heat:7},
+{id:“sf3”,label:“Moment feel-good”,desc:“Célébration avec la foule”,mom:5,heat:10},
+{id:“sf4”,label:“Alliance surprise”,desc:“Allié inattendu”,mom:9,heat:6},
+{id:“sf5”,label:“Retour surprise”,desc:“Revient après absence”,mom:15,heat:12},
+],heel:[
+{id:“sh1”,label:“Attaque sournoise”,desc:“Frappe par derrière”,mom:8,heat:13},
+{id:“sh2”,label:“Humiliation publique”,desc:“Dégrade le face”,mom:7,heat:14},
+{id:“sh3”,label:“Fausse réconciliation”,desc:“Trahit après semblant”,mom:11,heat:10},
+{id:“sh4”,label:“Corruption d’un tiers”,desc:“Recrute ou corrompt”,mom:9,heat:9},
+{id:“sh5”,label:“Otage narratif”,desc:“Menace un proche”,mom:8,heat:12},
+]},
+coulisse:{label:“Coulisse”,icon:“🎭”,face:[
+{id:“cf1”,label:“Demande de match”,desc:“Réclame son title shot”,mom:6,heat:3},
+{id:“cf2”,label:“Interview backstage”,desc:“Facette humaine”,mom:4,heat:5},
+{id:“cf3”,label:“Teaser de retour”,desc:“Hype progressive”,mom:5,heat:6},
+{id:“cf4”,label:“Signe un contrat”,desc:“Officialise le match”,mom:7,heat:4},
+],heel:[
+{id:“ch1”,label:“Réunion du clan”,desc:“Consolide son stable”,mom:7,heat:6},
+{id:“ch2”,label:“Menaces backstage”,desc:“Intimide le GM ou rival”,mom:5,heat:8},
+{id:“ch3”,label:“Corruption arbitre”,desc:“Prépare la triche”,mom:6,heat:7},
+{id:“ch4”,label:“Exige privilèges”,desc:“Power play autoritaire”,mom:5,heat:10},
+]},
+};
+
+const ACTS_AEW={
+promo:{label:“Promo”,icon:“🎤”,face:[
+{id:“pf1”,label:“Pipe bomb AEW”,desc:“Vérité brutale — la salle explose”,mom:10,heat:6},
+{id:“pf2”,label:“Promo in-ring intense”,desc:“Micro posé, vérité dite — connexion totale”,mom:8,heat:3},
+{id:“pf3”,label:“Réponse cinglante”,desc:“Counter parfait, wit acéré”,mom:7,heat:6},
+{id:“pf4”,label:“Appel à la liberté”,desc:“Discours anti-establishment — pop immédiat”,mom:6,heat:8},
+{id:“pf5”,label:“Promo lutte libre”,desc:“Respect du mat — gagne les connaisseurs”,mom:5,heat:4},
+],heel:[
+{id:“ph1”,label:“Promo Elite arrogante”,desc:“On est meilleurs que vous — heat massif”,mom:6,heat:10},
+{id:“ph2”,label:“Insulte les indés”,desc:“Crache sur les origines des fans”,mom:4,heat:13},
+{id:“ph3”,label:“Manipulation médiatique”,desc:“Retourne les réseaux contre le face”,mom:8,heat:8},
+{id:“ph4”,label:“Révèle une trahison”,desc:“Brise une alliance — choc narratif”,mom:10,heat:9},
+{id:“ph5”,label:“Provoc personalelle”,desc:“Attaque la vie privée du rival”,mom:6,heat:11},
+]},
+match:{label:“Match”,icon:“⚔️”,face:[
+{id:“mf1”,label:“Match technique 5★”,desc:“Chef-d’œuvre pur — Dave Meltzer approuve”,mom:14,heat:8},
+{id:“mf2”,label:“Deathmatch surprise”,desc:“Violence inattendue — salle sous le choc”,mom:12,heat:12},
+{id:“mf3”,label:“Comeback brutal”,desc:“Encaisse tout et repart — pop énorme”,mom:15,heat:10},
+{id:“mf4”,label:“Défaite honorable”,desc:“Perd en warrior — respect gagné”,mom:5,heat:7},
+{id:“mf5”,label:“Victoire sur Elite”,desc:“Bat un membre de l’Elite — moment historique”,mom:16,heat:7},
+],heel:[
+{id:“mh1”,label:“Victoire par forfait”,desc:“Refuse de se battre — heat légit”,mom:5,heat:12},
+{id:“mh2”,label:“Beatdown à 3 contre 1”,desc:“Stable entier intervient”,mom:9,heat:14},
+{id:“mh3”,label:“Tricherie visible”,desc:“Pied sur corde, arbitre aveugle”,mom:6,heat:13},
+{id:“mh4”,label:“Chair shot à la tête”,desc:“Violence gratuite — foule horrifiée”,mom:8,heat:15},
+{id:“mh5”,label:“No-show calculé”,desc:“Abandonne le ring pour humilier”,mom:7,heat:11},
+]},
+segment:{label:“Segment”,icon:“🎬”,face:[
+{id:“sf1”,label:“Retour de blessure”,desc:“Revient plus fort — explosion de la salle”,mom:15,heat:10},
+{id:“sf2”,label:“Signing surprise”,desc:“Signe avec AEW en direct — chaos médiatique”,mom:13,heat:8},
+{id:“sf3”,label:“Confrontation Blood & Guts”,desc:“Défie toute une stable en cage”,mom:11,heat:9},
+{id:“sf4”,label:“Moment de respect”,desc:“Rival tend la main — foule debout”,mom:8,heat:11},
+{id:“sf5”,label:“Alliance inattendue”,desc:“Deux rivaux s’unissent contre un ennemi commun”,mom:10,heat:7},
+],heel:[
+{id:“sh1”,label:“Beatdown post-match”,desc:“Continue après la cloche, sang au sol”,mom:9,heat:14},
+{id:“sh2”,label:“Humiliation en direct”,desc:“Dégrade le rival devant famille/fans”,mom:8,heat:15},
+{id:“sh3”,label:“Trahison de stable”,desc:“Retourne contre ses propres alliés”,mom:12,heat:11},
+{id:“sh4”,label:“Invasion de show rival”,desc:“Crée l’incident diplomatique”,mom:10,heat:10},
+{id:“sh5”,label:“Destruction matériel”,desc:“Casse le ring, les barrières, tout”,mom:9,heat:13},
+]},
+coulisse:{label:“Coulisse”,icon:“🎭”,face:[
+{id:“cf1”,label:“Réclame title shot”,desc:“Exige une opportunité méritée”,mom:7,heat:4},
+{id:“cf2”,label:“Interview Renee/Tony”,desc:“Se confie — humanise le personnage”,mom:5,heat:5},
+{id:“cf3”,label:“Hype sur les réseaux”,desc:“Tease le retour ou le match”,mom:6,heat:6},
+{id:“cf4”,label:“Signe le contrat All In”,desc:“Officialise le grand match”,mom:9,heat:5},
+],heel:[
+{id:“ch1”,label:“Réunion de stable”,desc:“L’Elite ou BCC se consolide”,mom:8,heat:7},
+{id:“ch2”,label:“Pression sur Tony Khan”,desc:“Exige des faveurs de la direction”,mom:6,heat:9},
+{id:“ch3”,label:“Payoff de l’arbitre”,desc:“Achète la victoire à l’avance”,mom:7,heat:8},
+{id:“ch4”,label:“Sabotage coulisse”,desc:“Blesse le rival avant son match”,mom:9,heat:12},
+]},
+};
+
+const STIPS_WWE=[
+{id:“singles”,label:“Match Simple”,icon:“1v1”},{id:“ladder”,label:“Ladder Match”,icon:“🪜”},
+{id:“hell”,label:“Hell in a Cell”,icon:“🔒”},{id:“extreme”,label:“Extreme Rules”,icon:“💢”},
+{id:“steel”,label:“Steel Cage”,icon:“⛓️”},{id:“lastman”,label:“Last Man Standing”,icon:“🥊”},
+{id:“loser”,label:“Loser Leaves Town”,icon:“🚪”},{id:“ironman”,label:“Iron Man”,icon:“⏱️”},
+{id:“tlc”,label:“TLC Match”,icon:“📐”},{id:“wargames”,label:“War Games”,icon:“🏟️”},
+{id:“submis”,label:“Submission Match”,icon:“🤚”},{id:“strap”,label:“Strap Match”,icon:“🪢”},
+];
+
+const STIPS_AEW=[
+{id:“singles”,label:“Match Simple”,icon:“1v1”},{id:“ladder”,label:“Casino Ladder Match”,icon:“🃏”},
+{id:“unsanctioned”,label:“Unsanctioned”,icon:“🩸”},{id:“deathmatch”,label:“Deathmatch”,icon:“💀”},
+{id:“dogcollar”,label:“Dog Collar Match”,icon:“⛓️”},{id:“streetfight”,label:“Street Fight”,icon:“🥊”},
+{id:“exploding”,label:“Exploding Barbed Wire”,icon:“💥”},{id:“ironman”,label:“Iron Man”,icon:“⏱️”},
+{id:“bloodguts”,label:“Blood & Guts”,icon:“🏟️”},{id:“submis”,label:“Submission Match”,icon:“🤚”},
+{id:“loser”,label:“Loser Leaves AEW”,icon:“🚪”},{id:“casket”,label:“Coffin Match”,icon:“⚰️”},
+];
+
+const MATCH_FORMATS=[
+{id:“singles”,   label:“Singles”,          icon:“1v1”, n:2, desc:“Match classique 1 contre 1”},
+{id:“triple”,    label:“Triple Threat”,     icon:“3⃣”,  n:3, desc:“3 participants, pas de tag — le premier pin l’emporte”},
+{id:“fatal4”,    label:“Fatal 4-Way”,       icon:“4⃣”,  n:4, desc:“4 participants simultanément — chaos garanti”},
+{id:“gauntlet”,  label:“Gauntlet Match”,    icon:“⚔️”,  n:5, desc:“Chaque vainqueur affronte le suivant — le dernier survivant gagne”},
+{id:“elimination”,label:“Elimination Chamber”,icon:“⛓️”,n:6, desc:“6 superstars, éliminations successives — dernier debout gagne”},
+];
+const ROAD={
+WWE:[
+{id:“rr”,   label:“Royal Rumble”,      type:“ppv”, specialStip:{id:“rumble”,   label:“Royal Rumble Match”, icon:“🔢”, desc:“30 hommes, élimination par-dessus les cordes — le vainqueur challenge à WrestleMania.”}},
+{id:“w1”,   label:“Raw S1”,            type:“week”},
+{id:“w2”,   label:“Raw S2”,            type:“week”},
+{id:“w3”,   label:“Raw S3”,            type:“week”},
+{id:“w4”,   label:“Raw S4”,            type:“week”},
+{id:“w5”,   label:“SD S5”,             type:“week”},
+{id:“w6”,   label:“SD S6”,             type:“week”},
+{id:“w7”,   label:“SD S7”,             type:“week”},
+{id:“w8”,   label:“SD S8”,             type:“week”},
+{id:“ec”,   label:“Elim. Chamber”,     type:“ppv”, specialStip:{id:“chamber”,  label:“Elimination Chamber”, icon:“⛓️”, desc:“6 superstars enfermés dans la chambre — dernier survivant challenge le champion à WM.”}},
+{id:“w9”,   label:“Raw S9”,            type:“week”},
+{id:“w10”,  label:“Raw S10”,           type:“week”},
+{id:“w11”,  label:“SD S11”,            type:“week”},
+{id:“w12”,  label:“SD S12”,            type:“week”},
+{id:“wm”,   label:“WrestleMania”,      type:“ppv”},
+],
+AEW:[
+{id:“dou”,  label:“Double or Nothing”, type:“ppv”,
+specialStip:{id:“casinobattle”,label:“Casino Battle Royale”,icon:“🃏”,desc:“Battle royale avec entrées par vagues — le dernier survivant obtient un title shot. La Joker Card entre en dernier.”}},
+{id:“w1”,   label:“Dynamite S1”,       type:“week”},
+{id:“w2”,   label:“Dynamite S2”,       type:“week”},
+{id:“w3”,   label:“Collision S3”,      type:“week”},
+{id:“w4”,   label:“Collision S4”,      type:“week”},
+{id:“fd”,   label:“Forbidden Door”,    type:“ppv”,
+specialStip:{id:“interdojo”,label:“Inter-Dojo Challenge”,icon:“🌏”,desc:“Match d’honneur entre AEW et NJPW — les deux promotions s’affrontent pour la suprématie mondiale.”}},
+{id:“w5”,   label:“Dynamite S5”,       type:“week”},
+{id:“w6”,   label:“Dynamite S6”,       type:“week”},
+{id:“w7”,   label:“Collision S7”,      type:“week”},
+{id:“w8”,   label:“Collision S8”,      type:“week”},
+{id:“bg”,   label:“Blood & Guts”,      type:“ppv”,
+specialStip:{id:“bloodguts”,label:“Blood & Guts Match”,icon:“🏟️”,desc:“5 contre 5 dans une double cage — pas d’élimination, on se bat jusqu’à ce qu’un camp abandonne. Violence totale garantie.”}},
+{id:“w9”,   label:“Dynamite S9”,       type:“week”},
+{id:“w10”,  label:“Collision S10”,     type:“week”},
+{id:“ai”,   label:“All In”,            type:“ppv”},
+],
+};
+
+const CHANTS_HOT=[“THIS IS AWESOME”,“HOLY SHIT”,“LET’S GO {NAME}”,“ONE MORE TIME”,”{NAME} IS GONNA KILL YOU”,“YOU DESERVE IT”,“FIGHT FOREVER”];
+const CHANTS_WARM=[”{NAME} {NAME} {NAME}”,“LET’S GO {NAME}”,“OLE OLE OLE”,“BOOM BOOM BOOM”];
+const CHANTS_COLD=[“BORING BORING”,“WE WANT REFUND”,“CHANGE THE CHANNEL”,“GO BACK HOME”,“WHO ARE YOU”];
+const CHANTS_HEAT=[“ASSHOLE ASSHOLE”,“YOU SUCK YOU SUCK”,“DIE {NAME} DIE”,“PIECE OF SHIT”];
+const REACTIONS_5=[“La foule est en feu — standing ovation immédiat !”,“L’arène explose du sol au plafond. Moment historique.”,“15 000 personnes debout en même temps. Frissons garantis.”,“Le toit de l’arène vient de partir. Pur chaos.”];
+const REACTIONS_4=[“La foule adore — chaleur massive dans l’arène.”,“Grosse réaction, le public est totalement investi.”,“L’arène vibre. Ce booking touche exactement les bonnes cordes.”,“Très bonne semaine — la foule redemande.”];
+const REACTIONS_3=[“Réaction correcte, le public suit sans être transcendé.”,“Semaine solide. Quelques moments forts mais manque de piquant.”,“La foule est là mais attend plus. Le potentiel est visible.”,“Booking honnête — la foule apprécie sans exploser.”];
+const REACTIONS_2=[“La salle est tiède. Le booking ne convainc pas vraiment.”,“Quelques sifflets. La foule décroche par moments.”,“Ambiance mitigée — certains angles ne passent pas.”,“Le public est présent mais indifférent. À revoir.”];
+const REACTIONS_1=[“Silence gênant dans l’arène. Le booking rate sa cible.”,“La foule décroche complètement. Des sifflets s’élèvent.”,“Catastrophe créative — personne ne comprend ce booking.”,“L’arène se vide mentalement. Show raté.”];
+
+const VOICES_5=[“On en reparlera pendant des années. Booking parfait.”,“C’est pour ça qu’on vient chaque semaine !”,“Ce booker comprend vraiment ce que la foule veut.”];
+const VOICES_4=[“Très bonne semaine. Le booker sait ce qu’il fait.”,“On sent une vraie direction créative. Continuez comme ça.”,“Les storylines avancent bien, la foule est investie.”];
+const VOICES_3=[“Correct mais on a vu mieux. Manque un peu de folie.”,“Semaine moyenne — quelques bons moments mais ça manque de cohérence.”,“Le booking est logique mais prévisible. Surprenez-nous !”];
+const VOICES_2=[“On commence à perdre le fil. Où va cette storyline ?”,“Trop de superstars mal utilisées ce soir.”,“La direction créative semble perdue. À retravailler.”];
+const VOICES_1=[“On se demande qui book ce show…”,“Personne ne comprend les décisions prises ce soir.”,“C’est le genre de semaine qui fait perdre des téléspectateurs.”];
+
+const NOTES_5=[“Continue comme ça — tu as trouvé la formule parfaite.”,“Booking irréprochable. Chaque action avait du sens.”];
+const NOTES_4=[“Très solide. Peaufine encore les arcs secondaires.”,“Bon travail — la logique narrative est là.”];
+const NOTES_3=[“Varie les actions pour éviter la répétition. La foule s’habitue vite.”,“Quelques incohérences face/heel à corriger la semaine prochaine.”];
+const NOTES_2=[“Tes heels manquent de heat et tes faces manquent de pop. Rééquilibre.”,“Trop d’actions similaires sur une même semaine — diversifie.”];
+const NOTES_1=[“Recommence depuis les bases : 1 heel fort, 1 face fort, 1 feud claire.”,“Le momentum de tout le roster est en chute. Prends des risques créatifs.”];
+const HIGHLIGHTS_POOL=[“Bonne utilisation des rivalités existantes”,“Équilibre face/heel cohérent”,“Actions variées sur la semaine”,“Montée en puissance progressive”,“Superstar bien mise en avant”,“Feud logique et convaincante”,“Moment de surprise bien placé”,“Champion utilisé avec autorité”];
+const MISTAKES_POOL=[“Trop d’actions identiques sur la semaine”,“Face utilisé en position de faiblesse sans raison”,“Heel sans heat suffisant”,“Champion absent ou mal mis en valeur”,“Rivalités ignorées”,“Momentum gaspillé sur un mauvais angle”,“Surcharge de superstars — manque de focus”,“Incohérence de rôle face/heel”];
+const NOISE_LVL={1:{label:“Silence de mort”,emoji:“😶”,c:”#555”},2:{label:“Indifférent”,emoji:“😑”,c:”#888”},3:{label:“Intéressé”,emoji:“👀”,c:”#f5c518”},4:{label:“En feu”,emoji:“🔥”,c:”#ff6b00”},5:{label:“EXPLOSION”,emoji:“💥”,c:”#ff003c”}};
+const VERDICT_C={“OVATION DEBOUT”:”#00e5aa”,“CHAUD”:”#ff6b00”,“TIÈDE”:”#f5c518”,“HEAT NÉGATIF”:”#ff2244”,“SILENCE GÊNANT”:”#555”};
+const clamp=(v,lo=0,hi=100)=>Math.max(lo,Math.min(hi,v));
+const rc=r=>r===“heel”?”#ff2244”:r===“face”?”#00e5aa”:”#f5c518”;
+const sevColor=s=>s===“critical”?”#ff2244”:s===“opportunity”?”#00e5aa”:”#f5c518”;
+
+const getStips=(promo)=>promo===“AEW”?STIPS_AEW:STIPS_WWE;
+const STIPS=STIPS_WWE;
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function pickN(arr,n){const s=[…arr];const r=[];while(r.length<n&&s.length){const i=Math.floor(Math.random()*s.length);r.push(s.splice(i,1)[0]);}return r;}
+function fmtChant(c,name){return c.replace(/{NAME}/g,(name||’’).split(’ ‘)[0].toUpperCase()||“LET’S GO”);}
+
+// ─── CRISIS ENGINE v2 ─────────────────────────────────────────────────────────
+const CRISIS_HISTORY = new Set(); // track seen crisis IDs this session
+
+function buildCrisisEvent(stepId, roster, plan, promo=“WWE”){
+const isAEW = promo === “AEW”;
+const grandFinal = isAEW ? “All In” : “WrestleMania”;
+const show1 = isAEW ? “Dynamite” : “Raw”;
+const show2 = isAEW ? “Collision” : “SmackDown”;
+
+const act    = roster.filter(w => w.status === “active”);
+const injured = roster.filter(w => w.status === “injured”);
+if (!act.length) return null;
+
+const champions = act.filter(w => w.title);
+const mainEvent = act.filter(w => w.tier === “main-event”);
+const rising    = act.filter(w => w.tier === “rising”);
+const heels     = act.filter(w => w.role === “heel”);
+const faces     = act.filter(w => w.role === “face”);
+
+const wmWinner = plan?.winnerId   ? act.find(w => w.id === plan.winnerId)   : pick(mainEvent);
+const wmRival  = plan?.rivalId    ? act.find(w => w.id === plan.rivalId)    : pick(heels);
+const champ    = plan?.championId ? roster.find(w => w.id === plan.championId) : champions[0];
+
+const r1 = pick(rising) || pick(act);
+const r2 = pick(rising.filter(w => w.id !== r1?.id)) || pick(act.filter(w => w.id !== r1?.id));
+const randomW = pick(act);
+const randomHeel = pick(heels) || pick(act);
+const randomFace = pick(faces) || pick(act);
+
+// ── Pool universel (toujours disponible) ─────────────────────────────────
+const universalPool = [
+{ id:“gm_fired”, icon:“💼”, sev:“critical”,
+title: isAEW ? “TONY KHAN SOUS PRESSION” : “LE GM VIRÉ EN DIRECT”,
+desc: isAEW
+? `Tony Khan annonce en direct sur ${show1} qu'il prend le contrôle opérationnel du booking à la suite de résultats décevants. Les vestiaires sont en ébullition.`
+: `Le GM de ${show1} est licencié sans préavis. Un intérimaire est nommé pour la semaine — personne ne sait qui a le pouvoir.`,
+consequence: “Tous les matchs prévus sont à rebooker.” },
+
+```
+{ id:"locker_revolt", icon:"⚡", sev:"warning",
+  title: "RÉVOLTE DU VESTIAIRE",
+  desc: isAEW
+    ? `Plusieurs talents AEW refusent de se présenter à ${show1} en signe de protestation contre les conditions de travail. Tony Khan est en crise.`
+    : `Un groupe de mid-carders boycotte le show en solidarité avec ${randomW?.name}. La direction est contrainte de revoir la carte en urgence.`,
+  consequence: "Certains slots sont vides. Tu dois combler les trous." },
+
+{ id:"sponsor_scandal", icon:"📰", sev:"warning",
+  title: "SCANDALE MÉDIATIQUE",
+  desc: `${randomW?.name} fait scandale sur les réseaux sociaux. Un tweet controversé déclenche une tempête médiatique qui éclabousse ${isAEW ? "AEW" : "WWE"}.`,
+  consequence: isAEW ? "Tony Khan exige une promo de gestion de crise ce soir." : "La direction ordonne une promo de gestion de crise en direct." },
+
+{ id:"contract_war", icon:"✍️", sev:"opportunity",
+  title: "GUERRE DES CONTRATS",
+  desc: isAEW
+    ? `${r1?.name} est contacté par ${isAEW ? "WWE" : "AEW"} — sa loyauté est mise à l'épreuve. Tony Khan doit surenchérir ou perdre une pépite.`
+    : `${r1?.name} entre dans la dernière année de son contrat. Des rumeurs d'approche AEW circulent. La direction veut le verrouiller avec un angle fort.`,
+  consequence: "Donne-lui un push immédiat pour le fidéliser." },
+
+{ id:"injury_surprise", icon:"🚑", sev:"critical",
+  title: "BLESSURE EN COULISSE",
+  desc: `${randomW?.name} se blesse à l'entraînement — fracture confirmée. Il sera absent ${Math.floor(Math.random()*3)+4} semaines minimum.`,
+  consequence: "Son slot dans la carte doit être recomblé." },
+
+{ id:"stable_implosion", icon:"💥", sev:"warning",
+  title: "IMPLOSION DE STABLE",
+  desc: isAEW
+    ? `Le stable de ${randomHeel?.name} se déchire en direct — des accusations de leadership toxique fusent. La fissure est irrécupérable.`
+    : `Le groupe de ${randomHeel?.name} vole en éclats après une altercation en coulisse. L'alliance est officiellement terminée.`,
+  consequence: "Les ex-alliés sont désormais des rivaux naturels." },
+
+{ id:"face_turns_heel", icon:"🔄", sev:"warning",
+  title: "HEEL TURN SPONTANÉ",
+  desc: `${randomFace?.name} vire heel de façon totalement spontanée — attaque son partenaire en plein match. La salle est sous le choc. Ça prend massivement.`,
+  consequence: "Exploite le heat pendant qu'il est chaud." },
+
+{ id:"heel_turns_face", icon:"⚡", sev:"opportunity",
+  title: "FACE TURN INATTENDU",
+  desc: `${randomHeel?.name} sauve ${randomFace?.name} d'un beatdown à 3 contre 1 — moment de face turn organique. La foule explose en pop massif.`,
+  consequence: "Push immédiat ou ça retombe." },
+
+{ id:"crowd_chant", icon:"📣", sev:"opportunity",
+  title: "CHANT VIRAL",
+  desc: `${r1?.name} reçoit un chant spontané monstre durant un segment — les réseaux sociaux s'enflamment. Le public le réclame en main event.`,
+  consequence: "C'est le moment ou jamais de le pousher." },
+
+{ id:"title_defection", icon:"🏆", sev:"critical",
+  title: champ ? `${champ.name?.toUpperCase()} EXIGE PLUS` : "LE CHAMPION EXIGE PLUS",
+  desc: champ
+    ? `${champ.name}, champion ${champ.title}, exige d'être le main event de ${grandFinal} sans conditions. Il menace de no-show en cas de refus.`
+    : `Le champion en titre exige une renégociation de son contrat en urgence — son avocat a envoyé une lettre.`,
+  consequence: "Accorde ou prépare un tourney d'urgence." },
+
+{ id:"mystery_attacker", icon:"🎭", sev:"warning",
+  title: "ATTAQUANT MASQUÉ",
+  desc: `Un mystérieux attaquant masqué frappe ${wmWinner?.name || randomW?.name} en coulisse. Aucune caméra n'a capté le visage. Les rumeurs vont bon train.`,
+  consequence: "Révélation à planifier dans 2-3 semaines." },
+
+{ id:"ppv_city_drama", icon:"🏙️", sev:"warning",
+  title: isAEW ? "INCIDENT AU WEMBLEY" : "INCIDENT À VEGAS",
+  desc: isAEW
+    ? "La vente de billets pour All In au Wembley explose les records — mais les scalpers ont monopolisé les catégories VIP. Tollé médiatique."
+    : "La ville hôte de WrestleMania menace d'annuler les autorisations suite à des incidents en dehors du ring. La pression sur la direction monte.",
+  consequence: "La carte doit être irréprochable pour désamorcer." },
+
+{ id:"ratings_crash", icon:"📉", sev:"critical",
+  title: "CHUTE D'AUDIENCE",
+  desc: `Le dernier ${show1} a enregistré son plus bas historique depuis 3 ans. ${isAEW ? "Tony Khan" : "La direction"} exige un shake-up immédiat de la carte.`,
+  consequence: "Mets les plus gros noms en avant, cette semaine." },
+
+{ id:"return_tease", icon:"⚡", sev:"opportunity",
+  title: "TEASE DE RETOUR LÉGENDAIRE",
+  desc: isAEW
+    ? "Une silhouette non identifiée apparaît en fin de Dynamite. Les forums s'enflamment. Est-ce un retour légendaire pour All In ?"
+    : "Une musique familière se déclenche en fin de Raw avant d'être coupée. La Twitterverse s'embrase. WrestleMania approche…",
+  consequence: "Capitalise sur le buzz — révèle ou entretiens le mystère." },
+```
+
+];
+
+// ── Pool contextuel (dépend du plan) ────────────────────────────────────
+const contextPool = [];
+
+if (wmWinner) {
+contextPool.push(
+{ id:`winner_promo_bomb_${wmWinner.id}`, icon:“🎤”, sev:“opportunity”,
+title: `PROMO BOMBE DE ${wmWinner.name.toUpperCase()}`,
+desc: `${wmWinner.name} lâche une promo d'anthologie sur ${show1} qui donne le ton pour ${grandFinal}. La foule est électrisée.`,
+consequence: “Son momentum est au max — exploite-le.” },
+{ id:`winner_doubt_${wmWinner.id}`, icon:“❓”, sev:“warning”,
+title: `DOUTES SUR ${wmWinner.name.toUpperCase()}`,
+desc: `${wmWinner.name} perd un match non-télévisé de façon embarrassante. Les doutes sur sa capacité à headliner ${grandFinal} refont surface.`,
+consequence: “Une victoire propre cette semaine est indispensable.” }
+);
+}
+
+if (wmRival) {
+contextPool.push(
+{ id:`rival_snaps_${wmRival.id}`, icon:“😤”, sev:“warning”,
+title: `${wmRival.name.toUpperCase()} PÈTE UN CÂBLE`,
+desc: `${wmRival.name} perd son sang-froid en coulisse et frappe un cadreur. ${isAEW ? "Tony Khan" : "La direction"} envisage une suspension.`,
+consequence: “Son match à ${grandFinal} est en suspens.” },
+{ id:`rival_ally_${wmRival.id}`, icon:“🤝”, sev:“warning”,
+title: `${wmRival.name.toUpperCase()} RECRUTE`,
+desc: `${wmRival.name} approche ${r2?.name || "un inconnu"} pour l'aider à neutraliser ${wmWinner?.name || "son rival"}. L'alliance est en train de se former.`,
+consequence: “Le 1v1 de ${grandFinal} devient plus compliqué.” }
+);
+}
+
+if (injured.length) {
+const inj = pick(injured);
+contextPool.push(
+{ id:`return_${inj.id}`, icon:“⚡”, sev:“opportunity”,
+title: `RETOUR SURPRISE : ${inj.name.toUpperCase()}`,
+desc: `${inj.name} revient plus tôt que prévu — il est guéri à 80% mais veut absolument être là pour ${grandFinal}. Les médecins ne sont pas d'accord.`,
+consequence: “À toi de décider : retour immédiat ou encore 2 semaines ?” }
+);
+}
+
+if (r1) {
+contextPool.push(
+{ id:`breakout_${r1.id}`, icon:“📈”, sev:“opportunity”,
+title: `BREAKOUT : ${r1.name.toUpperCase()}`,
+desc: `${r1.name} vole la vedette sur ${show2} avec une performance de 20 minutes. Les fans votent massivement pour lui en ligne. Il est prêt pour le grand saut.`,
+consequence: “Push ou jalousie du vestiaire — à toi de choisir.” }
+);
+}
+
+if (isAEW) {
+contextPool.push(
+{ id:“njpw_drama”, icon:“🌏”, sev:“warning”,
+title: “TENSION FORBIDDEN DOOR”,
+desc: `Un talent NJPW prévu pour Forbidden Door refuse les conditions contractuelles AEW. L'accord entre les deux fédérations est fragilisé.`,
+consequence: “Le cross-over doit être reconfirmé ou remplacé.” },
+{ id:“elite_reunion”, icon:“🖐️”, sev:“opportunity”,
+title: “RÉUNION ELITE ?”,
+desc: `Des rumeurs de réunion de l'Elite complète circulent — les fans sont en ébullition sur Twitter. Tony Khan alimente le mystère.`,
+consequence: “Confirme ou démente — les deux créent du buzz.” }
+);
+} else {
+contextPool.push(
+{ id:“wwe_hall_tease”, icon:“🏛️”, sev:“opportunity”,
+title: “TEASE HALL OF FAME”,
+desc: `Une annonce Hall of Fame surprise est prévue pour WrestleMania Week — une légende va faire son retour dans l'arène. Les paris vont bon train.`,
+consequence: “Intègre une interaction avec un acteur de ta carte.” },
+{ id:“draft_rumor”, icon:“📋”, sev:“warning”,
+title: “RUMEURS DE DRAFT”,
+desc: `Des rumeurs de Draft surprise avant WrestleMania circulent — ${randomW?.name} serait transféré. Plusieurs contrats sont en renégociation.`,
+consequence: “Planifie les arcs en tenant compte des incertitudes.” }
+);
+}
+
+// ── Merge tous les pools et filtrer déjà vus ────────────────────────────
+const allPool = […universalPool, …contextPool];
+const fresh = allPool.filter(e => !CRISIS_HISTORY.has(e.id));
+const pool = fresh.length > 0 ? fresh : allPool; // reset si tout vu
+
+if (!pool.length) return null;
+const chosen = pick(pool);
+CRISIS_HISTORY.add(chosen.id);
+return chosen;
+}
+
+function scoreBooking(actions, roster, difficulty=“normal”){
+if(!actions||actions.length===0) return difficulty===“hard”?1:1.5;
+const H=difficulty===“hard”; // shorthand
+
+let score=0;
+let total=0;
+const usedCats=new Set();
+const usedActionIds=new Set();
+const usedWids=new Set();
+let incoherenceCount=0;
+let repeatPenalty=0;
+
+for(const entry of actions){
+const w=roster.find(r=>r.id===entry.wid);
+if(!w) continue;
+total++;
+usedWids.add(entry.wid);
+const a=entry.action;
+if(!a) continue;
+
+```
+// Actions répétées
+if(usedActionIds.has(a.id)) repeatPenalty+=H?2.5:1.5;
+usedActionIds.add(a.id);
+usedCats.add(entry.cat);
+
+// Base — HARD compresse davantage
+let base=H?(a.mom*0.55+a.heat*0.45)/2:(a.mom*0.7+a.heat*0.3)/2;
+
+// Cohérence rôle/action
+const isHeel=entry.role==="heel";
+const isTweener=entry.role==="tweener";
+const isHeelAct=["ph","mh","sh","ch"].some(p=>a.id?.startsWith(p));
+const isFaceAct=["pf","mf","sf","cf"].some(p=>a.id?.startsWith(p));
+
+if(isHeel&&isHeelAct)                    base*=H?1.25:1.3;
+else if(!isHeel&&!isTweener&&isFaceAct)  base*=H?1.25:1.3;
+else if(isTweener)                        base*=H?0.85:0.95;
+else { base*=H?0.40:0.60; incoherenceCount++; }
+
+// Tier
+if(w.tier==="main-event") base*=H?1.12:1.2;
+else if(w.tier==="rising") base*=H?1.04:1.1;
+
+// Stats superstar
+const popBonus=w.pop>=90?(H?1.2:1.5):w.pop>=80?(H?0.6:1.0):w.pop>=70?(H?0.2:0.4):(H?-0.3:0);
+const momBonus=w.mom>=90?(H?1.2:1.5):w.mom>=80?(H?0.6:1.0):w.mom>=70?(H?0.2:0.4):(H?-0.8:-0.3);
+base+=popBonus+momBonus;
+
+// Feud
+if(w.feuds&&w.feuds.length>0) base*=H?1.08:1.12;
+else base*=H?0.88:0.94;
+
+// Blessé
+if(w.status==="injured") base*=0.2;
+
+score+=base;
+```
+
+}
+
+if(total===0) return H?1:1.5;
+
+score-=repeatPenalty;
+score-=incoherenceCount*(H?3.5:2);
+
+// Variété catégories — HARD exige 3+ pour passer au-dessus de 3★
+if(usedCats.size===1)      score*=H?0.45:0.60;
+else if(usedCats.size===2) score*=H?0.72:0.85;
+else if(usedCats.size===3) score*=H?1.08:1.12;
+else if(usedCats.size>=4)  score*=H?1.20:1.25;
+
+// One-man show
+if(usedWids.size===1&&total>1) score*=H?0.65:0.78;
+
+const raw=score/total;
+
+// NORMAL : seuils plus généreux — 3★ accessible, 5★ demande de l’effort
+// HARD   : seuils très resserrés — 5★ quasi-impossible sans tout aligner
+let normalized;
+if(H){
+if(raw<1.5)      normalized=1;
+else if(raw<3)   normalized=1+(raw-1.5)/1.5*1;
+else if(raw<4.5) normalized=2+(raw-3)/1.5*1;
+else if(raw<6)   normalized=3+(raw-4.5)/1.5*1;
+else if(raw<7.5) normalized=4+(raw-6)/1.5*0.5;
+else             normalized=4.5+(raw-7.5)/3*0.5;
+} else {
+if(raw<2)        normalized=1;
+else if(raw<3.5) normalized=1.5+(raw-2)/1.5*0.5;
+else if(raw<5)   normalized=2+(raw-3.5)/1.5*1;
+else if(raw<6.5) normalized=3+(raw-5)/1.5*1;
+else if(raw<8)   normalized=4+(raw-6.5)/1.5*0.5;
+else             normalized=4.5+(raw-8)/2*0.5;
+}
+
+normalized=Math.max(1,Math.min(5,normalized));
+return Math.round(normalized*2)/2;
+}
+function buildWrestlerNotes(actions, roster){
+const notes={};
+for(const entry of actions){
+const w=roster.find(r=>r.id===entry.wid);
+if(!w||!entry.action)continue;
+const isCoherent=(entry.role===“heel”&&[“ph”,“mh”,“sh”,“ch”].some(p=>entry.action.id?.startsWith(p)))||
+(entry.role===“face”&&[“pf”,“mf”,“sf”,“cf”].some(p=>entry.action.id?.startsWith(p)));
+notes[entry.wid]=isCoherent
+?`\${w.name} bien utilisé — action cohérente avec son rôle.`
+:`\${w.name} — attention à la cohérence rôle/action.`;
+}
+return notes;
+}
+
+function buildCrowdResult(stars, actions, roster){
+const noise=Math.min(5,Math.max(1,Math.round(stars)));
+const mainAct=actions?.filter(e=>e.action)?.[0];
+const mainW=mainAct?roster.find(r=>r.id===mainAct?.wid):null;
+
+let chantPool, reactionPool, voicePool, notePool, verdict;
+if(stars>=4.5){chantPool=CHANTS_HOT;reactionPool=REACTIONS_5;voicePool=VOICES_5;notePool=NOTES_5;verdict=“OVATION DEBOUT”;}
+else if(stars>=3.5){chantPool=CHANTS_WARM;reactionPool=REACTIONS_4;voicePool=VOICES_4;notePool=NOTES_4;verdict=“CHAUD”;}
+else if(stars>=2.5){chantPool=CHANTS_WARM;reactionPool=REACTIONS_3;voicePool=VOICES_3;notePool=NOTES_3;verdict=“TIÈDE”;}
+else if(stars>=1.5){chantPool=CHANTS_COLD;reactionPool=REACTIONS_2;voicePool=VOICES_2;notePool=NOTES_2;verdict=“HEAT NÉGATIF”;}
+else{chantPool=CHANTS_COLD;reactionPool=REACTIONS_1;voicePool=VOICES_1;notePool=NOTES_1;verdict=“SILENCE GÊNANT”;}
+
+// Heel actions can flip chant to heat chant
+const hasHeatAction=actions?.some(e=>[“ph2”,“mh4”,“sh2”,“sh3”].includes(e.action?.id));
+if(hasHeatAction&&stars>=3) chantPool=CHANTS_HEAT;
+
+const chant=fmtChant(pick(chantPool),mainW?.name);
+const highlights=pickN(HIGHLIGHTS_POOL,Math.min(3,Math.ceil(stars)));
+const mistakes=stars<3.5?pickN(MISTAKES_POOL,Math.min(2,Math.floor(3.5-stars)+1)):[];
+
+return{
+stars,noise,chant,
+reaction:pick(reactionPool),
+voice:pick(voicePool),
+highlights,mistakes,
+note:pick(notePool),
+verdict,
+wrestler_notes:buildWrestlerNotes(actions||[],roster),
+};
+}
+
+// Wrapper async pour garder la même signature qu’avant
+async function callCrowd(prompt, roster, actionsData=[], difficulty=“normal”){
+await new Promise(r=>setTimeout(r,600+Math.random()*800));
+const stars=scoreBooking(actionsData,roster,difficulty);
+return buildCrowdResult(stars,actionsData,roster);
+}
+
+async function generateRoadPlan(roster){
+await new Promise(r=>setTimeout(r,800));
+const mainEvent=roster.filter(w=>w.tier===“main-event”&&w.status===“active”);
+const rising=roster.filter(w=>w.tier===“rising”&&w.status===“active”);
+const heels=mainEvent.filter(w=>w.role===“heel”);
+const faces=mainEvent.filter(w=>w.role===“face”||w.role===“tweener”);
+const champions=roster.filter(w=>w.title&&w.status===“active”);
+
+const wmWinner=pick(faces.length?faces:mainEvent);
+const wmRival=pick(heels.filter(h=>h.id!==wmWinner.id).length?heels.filter(h=>h.id!==wmWinner.id):mainEvent.filter(w=>w.id!==wmWinner.id));
+
+// Le vainqueur du Rumble = celui qui va à WM (peut être différent du winner final)
+const rumbleWinner=wmWinner;
+// Le survivor de la Chamber = le challenger désigné
+const chamberPool=mainEvent.filter(w=>w.id!==wmWinner.id&&w.id!==wmRival?.id);
+const chamberSurvivor=chamberPool.length?pick(chamberPool):wmRival;
+// Champion en titre
+const champion=champions.length?pick(champions):null;
+
+const chaos=pick(roster.filter(w=>w.status===“active”&&w.id!==wmWinner.id));
+
+const ARCS=[
+`\${wmWinner.name} cherche à prouver qu'il est le meilleur, \${wmRival?.name} fait tout pour l'en empêcher.`,
+`La rivalité entre \${wmWinner.name} et \${wmRival?.name} atteint son point de rupture.`,
+`\${wmWinner.name} doit surmonter la trahison de \${wmRival?.name} pour atteindre le sommet.`,
+`Deux visions s'affrontent : l'honneur de \${wmWinner.name} contre la domination de \${wmRival?.name}.`,
+];
+
+return{
+winner:wmWinner.id,
+winnerId:wmWinner.id,
+winnerName:wmWinner.name,
+rivalId:wmRival?.id,
+rivalName:wmRival?.name,
+rumbleWinnerId:rumbleWinner.id,
+rumbleWinnerName:rumbleWinner.name,
+chamberSurvivorId:chamberSurvivor?.id,
+chamberSurvivorName:chamberSurvivor?.name,
+championId:champion?.id,
+championName:champion?.name,
+championTitle:champion?.title,
+finalMatch:`\${wmWinner.name} vs \${wmRival?.name}`,
+card:[
+`\${wmWinner.name} vs \${wmRival?.name} (Main Event WM)`,
+`\${pick(rising)?.name||"Rising Star"} vs \${pick(chamberPool)?.name||"Challenger"}`,
+],
+feuds:[{wrestlers:`\${wmWinner.name} & \${wmRival?.name}`,arc:pick(ARCS)}],
+narrative:pick(ARCS),
+chaos:{who:chaos.id,what:`\${chaos.name} perturbe le plan principal.`,impact:“Le booking doit être repensé.”},
+};
+}
+
+/* ─── BASE COMPONENTS ────────────────────────────────────────────── */
+async function callCrowd(prompt, roster, actionsData=[], difficulty=“normal”){
+await new Promise(r=>setTimeout(r,600+Math.random()*800));
+const stars=scoreBooking(actionsData,roster,difficulty);
+return buildCrowdResult(stars,actionsData,roster);
+}
+async function generateRoadPlan(roster){
+await new Promise(r=>setTimeout(r,800));
+const mainEvent=roster.filter(w=>w.tier===“main-event”&&w.status===“active”);
+const rising=roster.filter(w=>w.tier===“rising”&&w.status===“active”);
+const heels=mainEvent.filter(w=>w.role===“heel”);
+const faces=mainEvent.filter(w=>w.role===“face”||w.role===“tweener”);
+const champions=roster.filter(w=>w.title&&w.status===“active”);
+
+const wmWinner=pick(faces.length?faces:mainEvent);
+const wmRival=pick(heels.filter(h=>h.id!==wmWinner.id).length?heels.filter(h=>h.id!==wmWinner.id):mainEvent.filter(w=>w.id!==wmWinner.id));
+
+// Le vainqueur du Rumble = celui qui va à WM (peut être différent du winner final)
+const rumbleWinner=wmWinner;
+// Le survivor de la Chamber = le challenger désigné
+const chamberPool=mainEvent.filter(w=>w.id!==wmWinner.id&&w.id!==wmRival?.id);
+const chamberSurvivor=chamberPool.length?pick(chamberPool):wmRival;
+// Champion en titre
+const champion=champions.length?pick(champions):null;
+
+const chaos=pick(roster.filter(w=>w.status===“active”&&w.id!==wmWinner.id));
+
+const ARCS=[
+`\${wmWinner.name} cherche à prouver qu'il est le meilleur, \${wmRival?.name} fait tout pour l'en empêcher.`,
+`La rivalité entre \${wmWinner.name} et \${wmRival?.name} atteint son point de rupture.`,
+`\${wmWinner.name} doit surmonter la trahison de \${wmRival?.name} pour atteindre le sommet.`,
+`Deux visions s'affrontent : l'honneur de \${wmWinner.name} contre la domination de \${wmRival?.name}.`,
+];
+
+return{
+winner:wmWinner.id,
+winnerId:wmWinner.id,
+winnerName:wmWinner.name,
+rivalId:wmRival?.id,
+rivalName:wmRival?.name,
+rumbleWinnerId:rumbleWinner.id,
+rumbleWinnerName:rumbleWinner.name,
+chamberSurvivorId:chamberSurvivor?.id,
+chamberSurvivorName:chamberSurvivor?.name,
+championId:champion?.id,
+championName:champion?.name,
+championTitle:champion?.title,
+finalMatch:`\${wmWinner.name} vs \${wmRival?.name}`,
+card:[
+`\${wmWinner.name} vs \${wmRival?.name} (Main Event WM)`,
+`\${pick(rising)?.name||"Rising Star"} vs \${pick(chamberPool)?.name||"Challenger"}`,
+],
+feuds:[{wrestlers:`\${wmWinner.name} & \${wmRival?.name}`,arc:pick(ARCS)}],
+narrative:pick(ARCS),
+chaos:{who:chaos.id,what:`\${chaos.name} perturbe le plan principal.`,impact:“Le booking doit être repensé.”},
+};
+}
+function applyTitleChange(prev, titleChange){
+if(!titleChange||!titleChange.fromId||!titleChange.toId) return prev;
+const from=prev.find(w=>w.id===titleChange.fromId);
+if(!from) return prev;
+return prev.map(w=>{
+if(w.id===titleChange.fromId) return {…w,title:null,mom:Math.max(0,w.mom-10)};
+if(w.id===titleChange.toId)   return {…w,title:from.title,mom:Math.min(100,w.mom+15),pop:Math.min(100,w.pop+5)};
+return w;
+});
+}
+
+// ═══════════════════════════════════════════════════════
+// MINI UI ENGINE (vanilla JS)
+// ═══════════════════════════════════════════════════════
+
+// Global state
+let STATE = {
+screen: ‘promo’,   // promo | home | mode
+promo: ‘WWE’,
+difficulty: ‘normal’,
+mode: null,        // storyline | road
+roster: [],
+globalStars: [],
+};
+
+function getT(){ return T[STATE.promo]; }
+
+function isMobile(){ return window.innerWidth < 680; }
+
+// ── DOM helpers ──────────────────────────────────────
+function el(tag, attrs={}, …children){
+const e = document.createElement(tag);
+for(const [k,v] of Object.entries(attrs)){
+if(k === ‘style’ && typeof v === ‘object’){
+Object.assign(e.style, v);
+} else if(k.startsWith(‘on’) && typeof v === ‘function’){
+e.addEventListener(k.slice(2).toLowerCase(), v);
+} else if(k === ‘cls’){
+e.className = v;
+} else if(k === ‘html’){
+e.innerHTML = v;
+} else {
+e.setAttribute(k, v);
+}
+}
+for(const c of children){
+if(c == null) continue;
+if(typeof c === ‘string’ || typeof c === ‘number’){
+e.appendChild(document.createTextNode(String(c)));
+} else if(c instanceof Node){
+e.appendChild(c);
+}
+}
+return e;
+}
+
+function div(attrs={}, …children){ return el(‘div’, attrs, …children); }
+function span(attrs={}, …children){ return el(‘span’, attrs, …children); }
+function btn(attrs={}, …children){ return el(‘button’, attrs, …children); }
+function inp(attrs={}){ return el(‘input’, attrs); }
+
+function render(node){
+const app = document.getElementById(‘app’);
+app.innerHTML = ‘’;
+app.appendChild(node);
+window.scrollTo(0,0);
+}
+
+// ── Shared UI components ─────────────────────────────
+
+function mkStars(v=0, size=20, color=’#f5c518’){
+const full = Math.floor(v);
+const half = v % 1 >= .5;
+const empty = 5 - full - (half ? 1 : 0);
+const w = div({cls:‘stars-wrap’});
+for(let i=0;i<full;i++) w.appendChild(span({style:{fontSize:size+‘px’,color,filter:`drop-shadow(0 0 3px ${color}55)`}},‘★’));
+if(half) w.appendChild(span({style:{fontSize:size+‘px’,color,opacity:.5}},‘★’));
+for(let i=0;i<empty;i++) w.appendChild(span({style:{fontSize:size+‘px’,color,opacity:.1}},‘★’));
+return w;
+}
+
+function mkTag(text, color=’#555’){
+return span({style:{
+background:`${color}18`, border:`1px solid ${color}44`, color,
+fontSize:‘9px’, letterSpacing:‘2px’, padding:‘2px 8px’,
+borderRadius:‘3px’, fontWeight:‘700’, textTransform:‘uppercase’
+}}, text);
+}
+
+function mkBtn(text, onClick, opts={}){
+const t = opts.t || getT();
+const isPrimary = (opts.variant||‘primary’) === ‘primary’;
+const disabled = opts.disabled || false;
+const small = opts.small || false;
+const full = opts.full || false;
+const b = btn({
+style:{
+background: isPrimary ? (disabled ? ‘#1a1a1a’ : `linear-gradient(135deg,${t.accent},${t.alt})`) : ‘transparent’,
+border: isPrimary ? ‘none’ : `1px solid ${t.border}`,
+color: isPrimary ? (disabled ? ‘#333’ : ‘#000’) : ‘#666’,
+fontFamily: t.font, fontSize: small ? ‘11px’ : ‘13px’,
+letterSpacing: small ? ‘2px’ : ‘3px’,
+padding: small ? ‘8px 14px’ : ‘13px 20px’,
+borderRadius: ‘8px’, fontWeight: ‘900’, textTransform: ‘uppercase’,
+width: full ? ‘100%’ : ‘auto’, opacity: disabled ? .45 : 1,
+transition: ‘all .15s’, flexShrink:‘0’
+}
+}, text);
+if(!disabled) b.addEventListener(‘click’, onClick);
+return b;
+}
+
+function mkSurface(t, style={}){
+return div({style:{
+background:t.surface, border:`1px solid ${t.border}`,
+borderRadius:‘12px’, padding:‘14px’, …style
+}});
+}
+
+function mkLabel(text, color){
+return div({style:{
+color: color||’#333’, fontSize:‘9px’, letterSpacing:‘3px’,
+textTransform:‘uppercase’, fontWeight:‘700’, marginBottom:‘8px’
+}}, text);
+}
+
+function mkMiniBar(label, v, color){
+const w = div({style:{flex:‘1’}});
+const top = div({style:{display:‘flex’,justifyContent:‘space-between’,marginBottom:‘2px’}});
+top.appendChild(span({style:{color:’#2a2a3a’,fontSize:‘8px’}},label));
+top.appendChild(span({style:{color,fontSize:‘9px’,fontWeight:‘700’}},v));
+const track = div({style:{height:‘2px’,background:’#111’,borderRadius:‘1px’}});
+const fill = div({style:{width:`${v}%`,height:‘100%’,background:color,borderRadius:‘1px’}});
+track.appendChild(fill); w.appendChild(top); w.appendChild(track);
+return w;
+}
+
+function mkNavBar(title, onHome, t, extras=[]){
+const row = div({style:{
+display:‘flex’, alignItems:‘center’, gap:‘8px’,
+marginBottom:‘16px’, paddingBottom:‘12px’,
+borderBottom:`1px solid ${t.border}`, flexWrap:‘wrap’
+}});
+row.appendChild(mkBtn(‘← Home’, onHome, {t, variant:‘ghost’, small:true}));
+row.appendChild(span({style:{
+color:t.accent, fontFamily:t.font, fontSize:‘16px’,
+letterSpacing:‘3px’, textTransform:‘uppercase’,
+textShadow:`0 0 14px ${t.glow}33`, flexShrink:‘1’,
+overflow:‘hidden’, textOverflow:‘ellipsis’, whiteSpace:‘nowrap’
+}}, title));
+if(extras.length){
+const ex = div({style:{marginLeft:‘auto’,display:‘flex’,gap:‘6px’,alignItems:‘center’,flexWrap:‘wrap’}});
+extras.forEach(e => ex.appendChild(e));
+row.appendChild(ex);
+}
+return row;
+}
+
+function mkPageWrap(t, content){
+const page = div({style:{
+minHeight:‘100vh’, background:t.bg, position:‘relative’, fontFamily:‘system-ui,sans-serif’
+}});
+// Background gradient
+const bg = div({style:{position:‘fixed’,inset:‘0’,zIndex:‘0’,pointerEvents:‘none’}});
+bg.appendChild(div({style:{position:‘absolute’,inset:‘0’,background:t.grad}}));
+bg.appendChild(div({style:{position:‘absolute’,inset:‘0’,
+backgroundImage:‘repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px)’,
+opacity:’.3’}}));
+page.appendChild(bg);
+const inner = div({style:{position:‘relative’,zIndex:‘1’}});
+inner.appendChild(content);
+page.appendChild(inner);
+return page;
+}
+
+function mkSheet(title, content, onClose, t){
+const overlay = div({cls:‘sheet-overlay’});
+overlay.addEventListener(‘click’, onClose);
+const inner = div({cls:‘sheet-inner’, style:{background:t.bg, border:`1px solid ${t.border}`}});
+inner.addEventListener(‘click’, e => e.stopPropagation());
+const header = div({cls:‘sheet-header’, style:{borderBottom:`1px solid ${t.border}`}});
+header.appendChild(div({cls:‘sheet-handle’}));
+if(title){
+const hrow = div({style:{display:‘flex’,justifyContent:‘space-between’,alignItems:‘center’,marginTop:‘8px’}});
+hrow.appendChild(span({style:{color:t.accent,fontSize:‘13px’,fontFamily:t.font,letterSpacing:‘3px’,textTransform:‘uppercase’}},title));
+const xb = btn({style:{background:‘none’,border:`1px solid ${t.border}`,color:’#555’,width:‘26px’,height:‘26px’,borderRadius:‘5px’,fontSize:‘12px’}},‘×’);
+xb.addEventListener(‘click’, onClose);
+hrow.appendChild(xb);
+header.appendChild(hrow);
+}
+inner.appendChild(header);
+const body = div({cls:‘sheet-body’});
+body.appendChild(content);
+inner.appendChild(body);
+overlay.appendChild(inner);
+return overlay;
+}
+
+// ── CrowdResult display ──────────────────────────────
+function mkCrowdResult(result, t){
+if(!result) return div({});
+const vc = VERDICT_C[result.verdict]||’#888’;
+const nl = NOISE_LVL[result.noise]||NOISE_LVL[3];
+const wrap = div({style:{
+background:t.surface, border:`1px solid ${vc}33`,
+borderRadius:‘12px’, overflow:‘hidden’, marginTop:‘12px’,
+animation:‘slideUp .4s ease’
+}});
+// Header
+const head = div({style:{
+background:`${nl.c}10`, borderBottom:`1px solid ${nl.c}18`,
+padding:‘10px 14px’, display:‘flex’, alignItems:‘center’, gap:‘10px’
+}});
+head.appendChild(span({style:{fontSize:‘20px’}}, nl.emoji));
+const hinfo = div({style:{flex:‘1’}});
+const bars = div({style:{display:‘flex’,gap:‘2px’,marginBottom:‘3px’}});
+for(let n=1;n<=5;n++){
+bars.appendChild(div({style:{flex:‘1’,height:‘3px’,borderRadius:‘1px’,background:n<=result.noise?nl.c:’#111’}}));
+}
+hinfo.appendChild(bars);
+hinfo.appendChild(div({style:{color:nl.c,fontSize:‘8px’,letterSpacing:‘2px’,textTransform:‘uppercase’,fontWeight:‘700’}},nl.label));
+head.appendChild(hinfo);
+head.appendChild(mkTag(result.verdict, vc));
+wrap.appendChild(head);
+// Body
+const body = div({style:{padding:‘14px’}});
+const starRow = div({style:{display:‘flex’,alignItems:‘baseline’,gap:‘8px’,marginBottom:‘10px’}});
+starRow.appendChild(mkStars(result.stars, 22, t.alt));
+starRow.appendChild(span({style:{color:t.alt,fontFamily:t.font,fontSize:‘30px’,lineHeight:‘1’,textShadow:`0 0 10px ${t.alt}44`}},result.stars));
+starRow.appendChild(span({style:{color:’#333’,fontSize:‘13px’}},’/5’));
+body.appendChild(starRow);
+// Chant
+const chantBox = div({style:{background:’#ffffff04’,border:`1px solid ${nl.c}15`,borderRadius:‘8px’,padding:‘8px 12px’,marginBottom:‘10px’,textAlign:‘center’}});
+chantBox.appendChild(span({style:{color:nl.c,fontFamily:t.font,fontSize:‘13px’,letterSpacing:‘3px’}},`📣 « ${result.chant} »`));
+body.appendChild(chantBox);
+body.appendChild(div({style:{color:’#aaa’,fontSize:‘13px’,fontStyle:‘italic’,lineHeight:‘1.7’,marginBottom:‘10px’}},`"${result.reaction}"`));
+// Voice
+const voiceBox = div({style:{borderLeft:`3px solid ${vc}`,paddingLeft:‘12px’,marginBottom:‘10px’}});
+voiceBox.appendChild(mkLabel(‘La foule’));
+voiceBox.appendChild(div({style:{color:’#666’,fontSize:‘12px’,lineHeight:‘1.7’}},result.voice));
+body.appendChild(voiceBox);
+// Highlights/Mistakes
+if(result.highlights?.length || result.mistakes?.length){
+const grid = div({style:{display:‘grid’,gridTemplateColumns:‘1fr 1fr’,gap:‘8px’,marginBottom:‘10px’}});
+const hl = div({style:{background:’#00e5aa08’,border:‘1px solid #00e5aa18’,borderRadius:‘8px’,padding:‘10px’}});
+hl.appendChild(mkLabel(‘✓ Points forts’,’#00e5aa’));
+(result.highlights||[]).forEach(h=>hl.appendChild(div({style:{color:’#88e8cc’,fontSize:‘11px’,lineHeight:‘1.6’}},`· ${h}`)));
+grid.appendChild(hl);
+const ml = div({style:{background:’#ff224408’,border:‘1px solid #ff224418’,borderRadius:‘8px’,padding:‘10px’}});
+ml.appendChild(mkLabel(‘✗ Erreurs’,’#ff2244’));
+if(result.mistakes?.length){
+result.mistakes.forEach(m=>ml.appendChild(div({style:{color:’#f5a0a8’,fontSize:‘11px’,lineHeight:‘1.6’}},`· ${m}`)));
+} else {
+ml.appendChild(div({style:{color:’#333’,fontSize:‘11px’}},‘Aucune’));
+}
+grid.appendChild(ml);
+body.appendChild(grid);
+}
+// Note
+const noteBox = div({style:{background:’#00e5aa06’,border:‘1px solid #00e5aa14’,borderRadius:‘8px’,padding:‘10px’}});
+noteBox.appendChild(mkLabel(‘📋 Note de booking’,’#00e5aa’));
+noteBox.appendChild(div({style:{color:’#88e8cc’,fontSize:‘12px’,lineHeight:‘1.7’}},result.note));
+body.appendChild(noteBox);
+wrap.appendChild(body);
+return wrap;
+}
+
+// ── ActionPicker sheet ───────────────────────────────
+function mkActionPicker(wrestler, role, onPick, onClose, t, promo){
+if(!wrestler) return div({});
+const c = rc(role);
+const acts = getActs(promo);
+const wrap = div({});
+const hdr = div({style:{position:‘relative’}});
+hdr.appendChild(div({style:{position:‘absolute’,top:‘0’,left:‘0’,right:‘0’,height:‘2px’,background:`linear-gradient(90deg,${c},${t.alt},transparent)`,borderRadius:‘16px 16px 0 0’}}));
+const htop = div({style:{display:‘flex’,justifyContent:‘space-between’,alignItems:‘center’,paddingTop:‘4px’}});
+const hinfo = div({});
+hinfo.appendChild(div({style:{color:c,fontFamily:t.font,fontSize:‘15px’,letterSpacing:‘3px’,textTransform:‘uppercase’}},wrestler.name));
+hinfo.appendChild(div({style:{color:’#444’,fontSize:‘10px’}},`Choisir une action · ${role}`));
+htop.appendChild(hinfo);
+const xb = btn({style:{background:‘none’,border:`1px solid ${t.border}`,color:’#555’,width:‘28px’,height:‘28px’,borderRadius:‘6px’,fontSize:‘13px’}},‘×’);
+xb.addEventListener(‘click’, onClose);
+htop.appendChild(xb);
+hdr.appendChild(htop);
+wrap.appendChild(hdr);
+
+CAT_KEYS.forEach(cat => {
+const catD = acts[cat];
+const catActs = role === ‘heel’ ? catD.heel : catD.face;
+const section = div({style:{marginBottom:‘14px’,marginTop:‘12px’}});
+const catHeader = div({style:{display:‘flex’,alignItems:‘center’,gap:‘6px’,marginBottom:‘8px’}});
+catHeader.appendChild(span({style:{fontSize:‘14px’}},catD.icon));
+catHeader.appendChild(span({style:{color:’#444’,fontSize:‘9px’,letterSpacing:‘3px’,textTransform:‘uppercase’,fontFamily:t.font}},catD.label));
+section.appendChild(catHeader);
+const grid = div({style:{display:‘grid’,gridTemplateColumns:‘repeat(auto-fill,minmax(150px,1fr))’,gap:‘5px’}});
+catActs.forEach(action => {
+const ab = btn({style:{
+background:t.surface, border:`1.5px solid ${t.border}`,
+borderRadius:‘8px’, padding:‘9px 10px’, textAlign:‘left’, transition:‘all .12s’
+}});
+ab.appendChild(div({style:{color:’#ddd’,fontSize:‘11px’,fontWeight:‘700’,marginBottom:‘2px’}},action.label));
+if(action.desc) ab.appendChild(div({style:{color:’#444’,fontSize:‘9px’,lineHeight:‘1.4’,marginBottom:‘4px’}},action.desc));
+const stats = div({style:{display:‘flex’,gap:‘6px’}});
+stats.appendChild(span({style:{color:t.alt,fontSize:‘9px’}},`+${action.mom} MOM`));
+stats.appendChild(span({style:{color:’#ff2244’,fontSize:‘9px’}},`+${action.heat} HEAT`));
+ab.appendChild(stats);
+ab.addEventListener(‘click’, () => onPick(cat, action));
+grid.appendChild(ab);
+});
+section.appendChild(grid);
+wrap.appendChild(section);
+});
+return wrap;
+}
+
+// ── RosterPanel ──────────────────────────────────────
+function mkRosterList(roster, t, onSelect){
+const list = div({style:{display:‘flex’,flexDirection:‘column’,gap:‘3px’}});
+roster.forEach(w => {
+const c = rc(w.role);
+const row = div({style:{
+display:‘flex’, alignItems:‘center’, gap:‘7px’,
+padding:‘7px 9px’, background:’#ffffff04’,
+border:‘1px solid transparent’, borderRadius:‘7px’,
+opacity: w.status !== ‘active’ ? .3 : 1, cursor:‘pointer’, transition:‘all .12s’
+}});
+row.appendChild(div({style:{width:‘3px’,height:‘18px’,borderRadius:‘2px’,background:c,flexShrink:‘0’}}));
+const info = div({style:{flex:‘1’,minWidth:‘0’}});
+info.appendChild(div({style:{color:’#ddd’,fontSize:‘11px’,fontWeight:‘700’,whiteSpace:‘nowrap’,overflow:‘hidden’,textOverflow:‘ellipsis’,fontFamily:t.font}},w.short));
+info.appendChild(div({style:{color:’#333’,fontSize:‘8px’,textTransform:‘uppercase’}},w.tier+(w.status===‘injured’?’ 🚑’:’’)+(w.title?’ 🏆’:’’)));
+row.appendChild(info);
+row.appendChild(span({style:{color:t.accent,fontSize:‘10px’,fontWeight:‘900’,fontFamily:t.font}},w.mom));
+if(onSelect) row.addEventListener(‘click’, () => onSelect(w.id));
+list.appendChild(row);
+});
+return list;
+}
+
+// ═══════════════════════════════════════════════════════
+// SCREEN: PROMO SELECT
+// ═══════════════════════════════════════════════════════
+function screenPromo(){
+const wrap = div({style:{
+minHeight:‘100vh’, background:’#000’, display:‘flex’, flexDirection:‘column’,
+alignItems:‘center’, justifyContent:‘center’, padding:‘32px 16px’,
+position:‘relative’, overflow:‘hidden’, fontFamily:‘system-ui,sans-serif’
+}});
+wrap.appendChild(div({style:{position:‘absolute’,inset:‘0’,backgroundImage:‘repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,.012) 2px,rgba(255,255,255,.012) 4px)’}}));
+const inner = div({style:{position:‘relative’,zIndex:‘1’,width:‘100%’,maxWidth:‘520px’}});
+
+// Title
+const titleWrap = div({style:{textAlign:‘center’,marginBottom:‘32px’}});
+titleWrap.appendChild(div({style:{color:’#333’,fontSize:‘9px’,letterSpacing:‘10px’,fontFamily:“Impact,sans-serif”,marginBottom:‘12px’}},‘FANTASY BOOKING’));
+const title = div({style:{fontFamily:“Impact,sans-serif”,fontSize:‘clamp(3.5rem,14vw,7rem)’,letterSpacing:‘4px’,lineHeight:’.85’,color:’#fff’,textTransform:‘uppercase’}});
+title.appendChild(document.createTextNode(‘THE’));
+title.appendChild(el(‘br’));
+const outline = span({style:{WebkitTextStroke:‘2px #fff’,WebkitTextFillColor:‘transparent’}},‘BOOKER’);
+title.appendChild(outline);
+titleWrap.appendChild(title);
+titleWrap.appendChild(div({style:{color:’#222’,fontSize:‘10px’,marginTop:‘16px’,letterSpacing:‘4px’}},‘CHOISIS TA PROMOTION’));
+inner.appendChild(titleWrap);
+
+// Difficulty
+let selectedDiff = ‘normal’;
+const diffWrap = div({style:{display:‘flex’,gap:‘8px’,marginBottom:‘20px’,justifyContent:‘center’}});
+const diffs = [[‘normal’,‘NORMAL’,‘Accessible’,‘🎮’],[‘hard’,‘HARD’,‘Exigeant’,‘💀’]];
+const diffBtns = {};
+diffs.forEach(([v,label,desc,icon]) => {
+const col = v===‘hard’ ? ‘#ff2244’ : ‘#00e5aa’;
+const d = div({style:{
+background:’#0a0a0a’, border:`2px solid #1a1a1a`,
+borderRadius:‘10px’, padding:‘10px 16px’, cursor:‘pointer’,
+textAlign:‘center’, transition:‘all .2s’, minWidth:‘130px’
+}});
+d.appendChild(div({style:{fontSize:‘16px’,marginBottom:‘3px’}},icon));
+d.appendChild(div({style:{color:’#444’,fontFamily:‘Impact,sans-serif’,fontSize:‘12px’,letterSpacing:‘3px’,marginBottom:‘2px’}},label));
+d.appendChild(div({style:{color:’#333’,fontSize:‘9px’,lineHeight:‘1.4’}},desc));
+const bar = div({style:{width:‘16px’,height:‘2px’,borderRadius:‘1px’,margin:‘6px auto 0’,opacity:‘0’}});
+d.appendChild(bar);
+d.addEventListener(‘click’, () => {
+selectedDiff = v;
+diffs.forEach(([dv]) => {
+const dc = v===‘hard’?’#ff2244’:’#00e5aa’;
+const isSelected = dv === v;
+const dcol = dv===‘hard’?’#ff2244’:’#00e5aa’;
+diffBtns[dv].style.background = isSelected ? `${dcol}12` : ‘#0a0a0a’;
+diffBtns[dv].style.borderColor = isSelected ? dcol : ‘#1a1a1a’;
+diffBtns[dv].querySelector(’.diff-bar’).style.opacity = isSelected ? ‘1’ : ‘0’;
+diffBtns[dv].querySelector(’.diff-bar’).style.background = dcol;
+diffBtns[dv].querySelector(’.diff-label’).style.color = isSelected ? dcol : ‘#444’;
+});
+});
+diffBtns[v] = d;
+const barEl = d.querySelector(‘div:last-child’);
+barEl.className = ‘diff-bar’;
+d.querySelectorAll(‘div’)[1].className = ‘diff-label’;
+diffWrap.appendChild(d);
+});
+// Set initial state for normal
+diffBtns[‘normal’].style.background = ‘#00e5aa12’;
+diffBtns[‘normal’].style.borderColor = ‘#00e5aa’;
+diffBtns[‘normal’].querySelector(’.diff-bar’).style.opacity = ‘1’;
+diffBtns[‘normal’].querySelector(’.diff-bar’).style.background = ‘#00e5aa’;
+diffBtns[‘normal’].querySelector(’.diff-label’).style.color = ‘#00e5aa’;
+inner.appendChild(diffWrap);
+
+// Promo cards
+const grid = div({style:{display:‘grid’,gridTemplateColumns:‘1fr 1fr’,gap:‘12px’}});
+Object.values(T).forEach(p => {
+const card = div({style:{
+background:’#0a0a0a’, border:‘2px solid #1a1a1a’,
+borderRadius:‘14px’, padding:‘26px 18px’, cursor:‘pointer’,
+textAlign:‘center’, transition:‘all .2s’, position:‘relative’, overflow:‘hidden’
+}});
+// Corner triangle
+card.appendChild(div({style:{position:‘absolute’,top:‘0’,left:‘0’,width:‘0’,height:‘0’,borderStyle:‘solid’,borderWidth:‘26px 26px 0 0’,borderColor:`${p.accent} transparent transparent transparent`}}));
+card.appendChild(div({style:{fontFamily:p.font,fontSize:‘clamp(2rem,9vw,3.5rem)’,fontWeight:‘900’,letterSpacing:‘4px’,color:p.accent,textShadow:`0 0 20px ${p.glow}55`,lineHeight:‘1’,marginBottom:‘8px’,textTransform:‘uppercase’}},p.badge));
+card.appendChild(div({style:{color:’#444’,fontSize:‘9px’,letterSpacing:‘3px’,marginBottom:‘14px’}},p.tagline));
+card.appendChild(div({style:{color:’#333’,fontSize:‘10px’,marginBottom:‘14px’}},`${ROSTERS[p.id].length} superstars · ${ROSTERS[p.id].filter(w=>w.title).length} champions`));
+const pill = div({style:{background:`${p.accent}16`,border:`1px solid ${p.accent}44`,borderRadius:‘7px’,padding:‘7px 12px’,color:p.accent,fontFamily:p.font,fontSize:‘11px’,letterSpacing:‘3px’,textTransform:‘uppercase’}},‘SÉLECTIONNER’);
+card.appendChild(pill);
+card.addEventListener(‘mouseenter’, () => { card.style.borderColor = p.accent; pill.textContent = ‘ENTRER →’; card.style.transform=‘scale(1.02)’; });
+card.addEventListener(‘mouseleave’, () => { card.style.borderColor = ‘#1a1a1a’; pill.textContent = ‘SÉLECTIONNER’; card.style.transform=‘scale(1)’; });
+card.addEventListener(‘click’, () => {
+STATE.promo = p.id;
+STATE.difficulty = selectedDiff;
+STATE.roster = JSON.parse(JSON.stringify(ROSTERS[p.id]));
+STATE.globalStars = [];
+render(screenHome());
+});
+grid.appendChild(card);
+});
+inner.appendChild(grid);
+wrap.appendChild(inner);
+return wrap;
+}
+
+// ═══════════════════════════════════════════════════════
+// SCREEN: HOME
+// ═══════════════════════════════════════════════════════
+function screenHome(){
+const t = getT();
+const page = mkPageWrap(t, (() => {
+const wrap = div({style:{maxWidth:‘860px’,margin:‘0 auto’,padding:‘24px 14px 60px’}});
+// Header
+const header = div({style:{display:‘flex’,justifyContent:‘space-between’,alignItems:‘flex-start’,marginBottom:‘30px’,flexWrap:‘wrap’,gap:‘12px’}});
+const left = div({});
+left.appendChild(mkTag(t.badge, t.accent));
+left.appendChild(div({style:{fontFamily:t.font,fontSize:‘clamp(2rem,8vw,4rem)’,letterSpacing:‘4px’,lineHeight:’.85’,color:’#fff’,textTransform:‘uppercase’,marginTop:‘10px’,textShadow:`0 0 20px ${t.glow}22`}},‘THE’));
+
+```
+left.lastChild.appendChild(span({style:{color:t.accent}},'BOOKER'));
+left.appendChild(div({style:{color:'#222',fontSize:'9px',marginTop:'8px',letterSpacing:'5px',fontFamily:t.font}},t.tagline));
+header.appendChild(left);
+
+const right = div({style:{display:'flex',flexDirection:'column',gap:'8px',alignItems:'flex-end'}});
+const avg = STATE.globalStars.length ? (STATE.globalStars.reduce((a,b)=>a+b,0)/STATE.globalStars.length).toFixed(1) : null;
+if(avg){
+  const surf = mkSurface(t, {padding:'10px 14px',textAlign:'center'});
+  surf.appendChild(mkLabel('Ton show'));
+  surf.appendChild(mkStars(parseFloat(avg),15,t.alt));
+  surf.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:'24px',lineHeight:'1',marginTop:'3px'}},avg+'/5'));
+  right.appendChild(surf);
+}
+right.appendChild(mkBtn('Changer de promo', () => render(screenPromo()), {t, variant:'ghost', small:true}));
+const diffBadge = div({style:{
+  background: STATE.difficulty==='hard'?'#ff224412':'#00e5aa12',
+  border: `1px solid ${STATE.difficulty==='hard'?'#ff244433':'#00e5aa33'}`,
+  borderRadius:'6px', padding:'4px 10px', textAlign:'center'
+}});
+diffBadge.appendChild(div({style:{color:STATE.difficulty==='hard'?'#ff2244':'#00e5aa',fontFamily:t.font,fontSize:'9px',letterSpacing:'3px'}},STATE.difficulty==='hard'?'💀 HARD':'🎮 NORMAL'));
+right.appendChild(diffBadge);
+header.appendChild(right);
+wrap.appendChild(header);
+
+// Mode cards
+const modes = [
+  {key:'storyline',icon:'🧵',title:'Storyline',c:t.accent},
+  {key:'career',icon:'🎭',title:'Carrière (bientôt)',c:t.alt,disabled:true},
+  {key:'road',icon:'🎲',title:'Road to PPV',c:'#f5c518'},
+];
+const modeGrid = div({style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'10px',marginBottom:'24px'}});
+modes.forEach(m => {
+  const card = div({style:{
+    background:t.surface, border:`1.5px solid ${t.border}`,
+    borderRadius:'12px', padding:'18px 14px', cursor: m.disabled?'not-allowed':'pointer',
+    transition:'all .18s', position:'relative', overflow:'hidden', opacity: m.disabled?.5:1
+  }});
+  card.appendChild(div({style:{position:'absolute',top:'0',left:'0',right:'0',height:'2px',background:'transparent',transition:'all .25s'}}));
+  card.appendChild(div({style:{fontSize:'24px',marginBottom:'8px'}},m.icon));
+  card.appendChild(div({style:{color:m.c,fontFamily:t.font,fontSize:'13px',letterSpacing:'3px',marginBottom:'5px',textTransform:'uppercase'}},m.title));
+  const go = div({style:{color:'#2a2a3a',fontSize:'9px',letterSpacing:'2px',fontFamily:t.font,transition:'color .15s'}},'JOUER');
+  card.appendChild(go);
+  if(!m.disabled){
+    card.addEventListener('mouseenter', () => {
+      card.style.borderColor = m.c; card.style.transform='translateY(-2px)';
+      card.querySelector('div:first-child').style.background = `linear-gradient(90deg,transparent,${m.c},transparent)`;
+      go.style.color = m.c; go.textContent = 'JOUER →';
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.borderColor = t.border; card.style.transform='none';
+      card.querySelector('div:first-child').style.background = 'transparent';
+      go.style.color = '#2a2a3a'; go.textContent = 'JOUER';
+    });
+    card.addEventListener('click', () => {
+      STATE.mode = m.key;
+      if(m.key === 'storyline') render(screenStoryline());
+      else if(m.key === 'road') render(screenRoad());
+    });
+  }
+  modeGrid.appendChild(card);
+});
+wrap.appendChild(modeGrid);
+
+// Roster preview
+const rosterSurf = mkSurface(t, {padding:'10px'});
+rosterSurf.appendChild(mkLabel(`Roster — ${t.badge}`, t.accent));
+const rosterPills = div({cls:'flex-wrap'});
+STATE.roster.forEach(w => {
+  const pill = div({style:{background:'#ffffff05',border:`1px solid ${rc(w.role)}18`,borderRadius:'6px',padding:'4px 9px',display:'flex',alignItems:'center',gap:'4px'}});
+  pill.appendChild(div({style:{width:'3px',height:'3px',borderRadius:'50%',background:rc(w.role)}}));
+  pill.appendChild(span({style:{color:'#666',fontSize:'11px',fontFamily:t.font}},w.short));
+  if(w.title) pill.appendChild(span({style:{fontSize:'8px'}},'🏆'));
+  rosterPills.appendChild(pill);
+});
+rosterSurf.appendChild(rosterPills);
+wrap.appendChild(rosterSurf);
+return wrap;
+```
+
+})());
+return page;
+}
+
+// ═══════════════════════════════════════════════════════
+// SCREEN: STORYLINE MODE
+// ═══════════════════════════════════════════════════════
+function screenStoryline(){
+const t = getT();
+const roster = STATE.roster;
+
+// Storyline state
+let step = 0;
+let selected = [];
+let stip = null;
+let winner = null;
+let titleChange = null;
+let matchFormat = {format:‘singles’, participants:[], winnerId:null};
+let weeks = [{},{},{},{}]; // {wid: {cat, action}}
+let result = null;
+let loading = false;
+
+function goHome(){ render(screenHome()); }
+
+function rebuild(){
+render(mkPageWrap(t, buildUI()));
+}
+
+function buildUI(){
+const wrap = div({style:{maxWidth:‘860px’,margin:‘0 auto’,padding:‘20px 14px 100px safe-bottom’}});
+wrap.appendChild(mkNavBar(‘🧵 Storyline’, goHome, t));
+
+```
+if(step === 0) wrap.appendChild(buildStep0());
+else if(step === 1) wrap.appendChild(buildStep1());
+else if(step === 2) wrap.appendChild(buildStep2());
+
+return wrap;
+```
+
+}
+
+// ── Step 0: Setup ──
+function buildStep0(){
+const frag = div({});
+// Wrestler selection
+const surf = mkSurface(t, {marginBottom:‘10px’});
+surf.appendChild(mkLabel(‘Acteurs (2 à 6)’, t.accent));
+const grid = div({style:{display:‘grid’,gridTemplateColumns:‘repeat(auto-fill,minmax(130px,1fr))’,gap:‘6px’}});
+roster.forEach(w => {
+const isSel = selected.includes(w.id);
+const c = rc(w.role);
+const card = div({style:{
+background: isSel?`${c}14`:t.surface,
+border:`1.5px solid ${isSel?c:t.border}`,
+borderRadius:‘8px’, padding:‘9px 10px’, cursor:‘pointer’,
+transition:‘all .12s’, opacity:(!isSel&&selected.length>=6)?.35:1
+}});
+const top = div({style:{display:‘flex’,justifyContent:‘space-between’,marginBottom:‘3px’}});
+top.appendChild(span({style:{color:isSel?c:’#ddd’,fontFamily:t.font,fontSize:‘11px’,fontWeight:‘700’,textTransform:‘uppercase’}},w.short));
+if(isSel) top.appendChild(span({style:{color:c,fontSize:‘12px’}},‘✓’));
+card.appendChild(top);
+card.appendChild(mkTag(w.role, c));
+card.addEventListener(‘click’, () => {
+if(selected.includes(w.id)) selected = selected.filter(x=>x!==w.id);
+else if(selected.length < 6) selected.push(w.id);
+rebuild();
+});
+grid.appendChild(card);
+});
+surf.appendChild(grid);
+surf.appendChild(div({style:{color:’#444’,fontSize:‘10px’,marginTop:‘8px’}},`${selected.length}/6 sélectionnés`));
+frag.appendChild(surf);
+
+```
+if(selected.length >= 2){
+  const selW = roster.filter(w => selected.includes(w.id));
+
+  // Stip
+  const stipSurf = mkSurface(t, {marginBottom:'10px'});
+  stipSurf.appendChild(mkLabel('Stipulation PPV final', t.accent));
+  const stipGrid = div({style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(138px,1fr))',gap:'5px'}});
+  getStips(STATE.promo).forEach(s => {
+    const card = div({style:{
+      background:stip===s.id?`${t.accent}14`:t.surface,
+      border:`1.5px solid ${stip===s.id?t.accent:t.border}`,
+      borderRadius:'8px', padding:'8px 10px', cursor:'pointer',
+      display:'flex', alignItems:'center', gap:'7px', transition:'all .12s'
+    }});
+    card.appendChild(span({style:{fontSize:'13px'}},s.icon));
+    card.appendChild(span({style:{color:stip===s.id?t.accent:'#bbb',fontSize:'11px',fontWeight:'700'}},s.label));
+    card.addEventListener('click', () => { stip=s.id; rebuild(); });
+    stipGrid.appendChild(card);
+  });
+  stipSurf.appendChild(stipGrid);
+  frag.appendChild(stipSurf);
+
+  if(stip){
+    // Winner
+    const winnerSurf = mkSurface(t, {marginBottom:'12px'});
+    winnerSurf.appendChild(mkLabel('Vainqueur', t.accent));
+    const winnerRow = div({cls:'flex-wrap'});
+    selW.forEach(w => {
+      const c = rc(w.role);
+      const card = div({style:{
+        background:winner===w.id?`${c}14`:t.surface,
+        border:`1.5px solid ${winner===w.id?c:t.border}`,
+        borderRadius:'8px', padding:'8px 12px', cursor:'pointer',
+        display:'flex', alignItems:'center', gap:'6px', transition:'all .12s'
+      }});
+      card.appendChild(div({style:{width:'5px',height:'5px',borderRadius:'50%',background:c}}));
+      card.appendChild(span({style:{color:winner===w.id?c:'#ccc',fontFamily:t.font,fontSize:'12px',textTransform:'uppercase'}},w.name));
+      if(winner===w.id) card.appendChild(span({style:{color:c}},'✓'));
+      card.addEventListener('click', () => { winner=w.id; rebuild(); });
+      winnerRow.appendChild(card);
+    });
+    winnerSurf.appendChild(winnerRow);
+    frag.appendChild(winnerSurf);
+
+    if(winner){
+      // Match format
+      frag.appendChild(buildMatchFormatPanel(selW));
+      // Title change
+      frag.appendChild(buildTitleChangePanel());
+      // Next step button
+      frag.appendChild(mkBtn('Planifier les 4 semaines →', () => { step=1; rebuild(); }, {t, full:true}));
+    }
+  }
+}
+return frag;
+```
+
+}
+
+// ── Step 1: Week planning ──
+function buildStep1(){
+const frag = div({});
+const selW = roster.filter(w => selected.includes(w.id));
+
+```
+selW.forEach(w => {
+  const acc = buildWrestlerAccordion(w);
+  frag.appendChild(acc);
+});
+
+// PPV summary
+const stipD = getStips(STATE.promo).find(s=>s.id===stip);
+const winnerW = roster.find(w=>w.id===winner);
+const summary = mkSurface(t, {marginTop:'10px',marginBottom:'12px'});
+const srow = div({style:{display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}});
+srow.appendChild(span({style:{fontSize:'18px'}},stipD?.icon));
+const sinfo = div({});
+sinfo.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:'12px',letterSpacing:'2px'}},`PPV — ${stipD?.label}`));
+sinfo.appendChild(div({style:{color:'#555',fontSize:'11px'}},`Vainqueur : `));
+sinfo.lastChild.appendChild(span({style:{color:rc(winnerW?.role||'face')}},winnerW?.name));
+srow.appendChild(sinfo);
+srow.appendChild(div({style:{marginLeft:'auto'}}));
+srow.lastChild.appendChild(mkBtn('← Modifier', () => { step=0; rebuild(); }, {t, variant:'ghost', small:true}));
+summary.appendChild(srow);
+frag.appendChild(summary);
+
+const submitBtn = mkBtn(loading ? '⏳ La foule réagit…' : '📣 Soumettre la storyline', doSubmit, {t, full:true, disabled:loading});
+frag.appendChild(submitBtn);
+return frag;
+```
+
+}
+
+// ── Step 2: Result ──
+function buildStep2(){
+const frag = div({});
+frag.appendChild(mkCrowdResult(result, t));
+frag.appendChild(div({style:{marginTop:‘14px’}}));
+frag.lastChild.appendChild(mkBtn(‘🔁 Nouvelle storyline’, () => {
+step=0; selected=[]; stip=null; winner=null; titleChange=null;
+matchFormat={format:‘singles’,participants:[],winnerId:null};
+weeks=[{},{},{},{}]; result=null; loading=false;
+rebuild();
+}, {t, full:true}));
+return frag;
+}
+
+// ── Wrestler accordion ──
+function buildWrestlerAccordion(w){
+let open = false;
+const c = rc(w.role);
+const container = div({style:{marginBottom:‘7px’}});
+
+```
+function rebuildAcc(){
+  container.innerHTML = '';
+  const header = div({style:{
+    background:t.surface, border:`1px solid ${c}22`,
+    borderRadius: open?'10px 10px 0 0':'10px', padding:'10px 12px',
+    display:'flex', alignItems:'center', gap:'10px', cursor:'pointer'
+  }});
+  header.appendChild(div({style:{width:'3px',height:'28px',borderRadius:'2px',background:c,flexShrink:'0'}}));
+  const info = div({style:{flex:'1'}});
+  info.appendChild(div({style:{color:'#ddd',fontFamily:t.font,fontSize:'13px',textTransform:'uppercase',letterSpacing:'1px'}},w.short+(w.title?' 🏆':'')+(w.status==='injured'?' 🚑':'')));
+  const bars = div({style:{display:'flex',gap:'4px',marginTop:'4px'}});
+  bars.appendChild(mkMiniBar('MOM',w.mom,t.accent));
+  bars.appendChild(mkMiniBar('POP',w.pop,'#00e5aa'));
+  info.appendChild(bars);
+  header.appendChild(info);
+  const filledCount = weeks.filter(wk => wk[w.id]).length;
+  if(filledCount>0){
+    const badge = div({style:{background:`${c}18`,border:`1px solid ${c}44`,borderRadius:'10px',padding:'2px 7px',color:c,fontSize:'10px',fontWeight:'700'}},`${filledCount}✓`);
+    header.appendChild(badge);
+  }
+  header.appendChild(span({style:{color:'#333',fontSize:'14px',transform:open?'rotate(180deg)':'none',transition:'transform .2s'}}, open?'▴':'▾'));
+  header.addEventListener('click', () => { open=!open; rebuildAcc(); });
+  container.appendChild(header);
+
+  if(open){
+    const body = div({style:{background:t.surface,border:`1px solid ${c}22`,borderTop:'none',borderRadius:'0 0 10px 10px',padding:'10px 12px'}});
+    // Role selector
+    const roles = div({style:{display:'flex',gap:'4px',marginBottom:'10px'}});
+    ['face','heel','tweener'].forEach(r => {
+      const rb = btn({style:{
+        flex:'1', padding:'5px 0', fontSize:'8px', textTransform:'uppercase',
+        background:w.role===r?`${rc(r)}14`:'none',
+        border:`1px solid ${w.role===r?rc(r):t.border}`,
+        color:w.role===r?rc(r):'#333', borderRadius:'4px', fontFamily:t.font
+      }}, r);
+      rb.addEventListener('click', () => {
+        STATE.roster = STATE.roster.map(wr => wr.id===w.id ? {...wr, role:r} : wr);
+        w = STATE.roster.find(wr=>wr.id===w.id);
+        rebuildAcc();
+      });
+      roles.appendChild(rb);
+    });
+    body.appendChild(roles);
+    // Week slots
+    weeks.forEach((wk, wi) => {
+      const act = wk[w.id];
+      const slotLabel = div({style:{color:'#333',fontSize:'8px',letterSpacing:'2px',marginBottom:'4px',fontFamily:t.font}},`SEMAINE ${wi+1}`);
+      body.appendChild(slotLabel);
+      if(act){
+        const actRow = div({style:{background:`${c}0a`,border:`1.5px solid ${c}33`,borderRadius:'8px',padding:'8px 10px',display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}});
+        actRow.appendChild(span({style:{fontSize:'14px'}},getActs(STATE.promo)[act.cat]?.icon||''));
+        const actInfo = div({style:{flex:'1'}});
+        actInfo.appendChild(div({style:{color:c,fontSize:'11px',fontWeight:'700'}},act.action.label));
+        if(act.action.desc) actInfo.appendChild(div({style:{color:'#444',fontSize:'9px'}},act.action.desc));
+        actRow.appendChild(actInfo);
+        const clearBtn = btn({style:{background:'none',border:`1px solid ${t.border}`,color:'#555',width:'22px',height:'22px',borderRadius:'4px',fontSize:'10px',flexShrink:'0'}},'×');
+        clearBtn.addEventListener('click', () => {
+          const newWks = weeks.map((w2,i) => { if(i!==wi) return w2; const n={...w2}; delete n[w.id]; return n; });
+          weeks = newWks; rebuildAcc();
+        });
+        actRow.appendChild(clearBtn);
+        body.appendChild(actRow);
+      } else {
+        const addBtn = btn({style:{width:'100%',padding:'10px',background:'#ffffff03',border:`1px dashed ${t.border}`,borderRadius:'8px',color:'#2a2a3a',fontSize:'12px',marginBottom:'8px'}},`+ Action semaine ${wi+1}`);
+        addBtn.addEventListener('click', () => {
+          showActionPicker(w, wi);
+        });
+        body.appendChild(addBtn);
+      }
+    });
+    container.appendChild(body);
+  }
+}
+rebuildAcc();
+return container;
+```
+
+}
+
+// ── Action picker modal ──
+let currentPickerOverlay = null;
+function showActionPicker(w, wi){
+if(currentPickerOverlay) currentPickerOverlay.remove();
+const content = mkActionPicker(w, w.role, (cat, action) => {
+weeks = weeks.map((wk,i) => i!==wi ? wk : {…wk, [w.id]:{cat, action}});
+closeActionPicker();
+rebuild();
+}, closeActionPicker, t, STATE.promo);
+currentPickerOverlay = mkSheet(null, content, closeActionPicker, t);
+// Override sheet style for action picker
+currentPickerOverlay.style.zIndex = ‘300’;
+document.body.appendChild(currentPickerOverlay);
+}
+function closeActionPicker(){
+if(currentPickerOverlay){ currentPickerOverlay.remove(); currentPickerOverlay=null; }
+}
+
+// ── Match format panel ──
+function buildMatchFormatPanel(selW){
+const surf = mkSurface(t, {marginBottom:‘10px’});
+surf.appendChild(mkLabel(‘Format du match PPV’, t.accent));
+const fmtGrid = div({cls:‘flex-wrap’, style:{marginBottom:‘12px’}});
+MATCH_FORMATS.forEach(f => {
+const isSel = matchFormat.format === f.id;
+const card = div({style:{
+background:isSel?`${t.accent}18`:t.surface, border:`1.5px solid ${isSel?t.accent:t.border}`,
+borderRadius:‘8px’, padding:‘7px 11px’, cursor:‘pointer’,
+display:‘flex’, alignItems:‘center’, gap:‘6px’, transition:‘all .12s’
+}});
+card.appendChild(span({style:{fontSize:‘14px’}},f.icon));
+const info = div({});
+info.appendChild(div({style:{color:isSel?t.accent:’#bbb’,fontFamily:t.font,fontSize:‘10px’,fontWeight:‘700’,letterSpacing:‘1px’,textTransform:‘uppercase’}},f.label));
+info.appendChild(div({style:{color:’#333’,fontSize:‘8px’}},`${f.n} participants`));
+card.appendChild(info);
+if(isSel) card.appendChild(span({style:{color:t.accent,fontSize:‘10px’}},‘✓’));
+card.addEventListener(‘click’, () => {
+matchFormat = {format:f.id, participants:matchFormat.participants.slice(0,f.n), winnerId:null};
+rebuild();
+});
+fmtGrid.appendChild(card);
+});
+surf.appendChild(fmtGrid);
+return surf;
+}
+
+// ── Title change panel ──
+function buildTitleChangePanel(){
+const surf = mkSurface(t, {marginBottom:‘10px’});
+const enabled = titleChange !== null;
+const champions = roster.filter(w=>w.title&&w.status===‘active’);
+const row = div({style:{display:‘flex’,alignItems:‘center’,justifyContent:‘space-between’,marginBottom:enabled?‘10px’:‘0’}});
+const left = div({style:{display:‘flex’,alignItems:‘center’,gap:‘8px’}});
+left.appendChild(span({style:{fontSize:‘18px’}},‘🏆’));
+const linfo = div({});
+linfo.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:‘11px’,letterSpacing:‘2px’,textTransform:‘uppercase’}},‘Changement de titre’));
+linfo.appendChild(div({style:{color:’#444’,fontSize:‘10px’}},‘Un titre change de mains au PPV ?’));
+left.appendChild(linfo);
+row.appendChild(left);
+const toggleBtn = btn({style:{
+background:enabled?`${t.alt}18`:‘none’, border:`1.5px solid ${enabled?t.alt:t.border}`,
+color:enabled?t.alt:’#444’, borderRadius:‘20px’, padding:‘5px 14px’,
+fontSize:‘11px’, fontFamily:t.font, letterSpacing:‘1px’, fontWeight:‘700’, transition:‘all .15s’
+}}, enabled?‘OUI’:‘NON’);
+toggleBtn.addEventListener(‘click’, () => {
+titleChange = enabled ? null : {fromId:champions[0]?.id||null, toId:null};
+rebuild();
+});
+row.appendChild(toggleBtn);
+surf.appendChild(row);
+return surf;
+}
+
+// ── Submit ──
+async function doSubmit(){
+if(loading) return;
+loading = true; rebuild();
+const fmtBonus = matchFormat.format===‘fatal4’?4:matchFormat.format===‘triple’?2:matchFormat.format===‘gauntlet’?5:matchFormat.format===‘elimination’?6:0;
+const selW = roster.filter(w=>selected.includes(w.id));
+const actionsData = selW.flatMap(w =>
+[0,1,2,3].map(wi => {
+const a = weeks[wi]?.[w.id];
+return a ? {wid:w.id,cat:a.cat,action:{…a.action,mom:(a.action.mom||0)+fmtBonus},role:w.role} : null;
+}).filter(Boolean)
+);
+const r = await callCrowd(’’, roster, actionsData, STATE.difficulty);
+result = r;
+if(titleChange?.fromId && titleChange?.toId){
+STATE.roster = applyTitleChange(STATE.roster, titleChange);
+}
+STATE.globalStars.push(r.stars);
+step = 2; loading = false;
+rebuild();
+}
+
+return mkPageWrap(t, buildUI());
+}
+
+// ═══════════════════════════════════════════════════════
+// SCREEN: ROAD TO PPV
+// ═══════════════════════════════════════════════════════
+function screenRoad(){
+const t = getT();
+const road = ROAD[STATE.promo];
+const finalPPV = road[road.length-1]?.label || ‘Grand PPV’;
+
+let phase = ‘intro’; // intro | gen | active | final
+let plan = null;
+let step = 0;
+let weekResults = [];
+let allResults = [];
+let lastResult = null;
+let crisis = null;
+let loading = false;
+let ppvStip = null;
+let titleChange = null;
+let matchFormat = {format:‘singles’,participants:[],winnerId:null};
+let weekPlan = [];
+let showPlan = false;
+
+function initWeekPlan(){
+weekPlan = STATE.roster.filter(w=>w.status===‘active’).map(w=>({wid:w.id,role:w.role,action:null}));
+}
+initWeekPlan();
+
+function goHome(){ render(screenHome()); }
+
+function maybeCrisis(s){
+const stepId = road[s]?.id;
+if(Math.random() < (road[s]?.type===‘ppv’?.70:.40)){
+const ev = buildCrisisEvent(stepId, STATE.roster, plan, STATE.promo);
+if(ev){ crisis = ev; rebuild(); }
+}
+}
+
+async function doStart(){
+phase = ‘gen’; rebuild();
+const p = await generateRoadPlan(STATE.roster);
+if(p?.chaos?.who){
+STATE.roster = STATE.roster.map(w => w.id===p.chaos.who ? {…w,status:‘injured’,mom:clamp(w.mom-20)} : w);
+}
+plan = p || {narrative:‘La route commence.’,chaos:{what:‘Blessure inattendue.’,impact:‘À rebooker.’},card:[],feuds:[]};
+phase = ‘active’; step = 0; initWeekPlan(); rebuild();
+setTimeout(()=>maybeCrisis(0), 300);
+}
+
+async function doSubmitWeek(){
+if(loading) return;
+loading = true; rebuild();
+const s = road[step];
+const fmtBonus = matchFormat.format===‘fatal4’?4:matchFormat.format===‘triple’?2:matchFormat.format===‘gauntlet’?5:matchFormat.format===‘elimination’?6:0;
+const actionsData = weekPlan.filter(e=>e.action).map(e=>({
+wid:e.wid, cat:e.action.cat,
+action:{…e.action.action, mom:(e.action.action.mom||0)+fmtBonus},
+role:e.role
+}));
+if(s.type===‘ppv’ && ppvStip){
+actionsData.forEach(a=>{ a.action={…a.action,mom:(a.action.mom||0)+3,heat:(a.action.heat||0)+3}; });
+}
+const r = await callCrowd(’’, STATE.roster, actionsData, STATE.difficulty);
+const fmtD = MATCH_FORMATS.find(f=>f.id===matchFormat.format)||MATCH_FORMATS[0];
+const enriched = {…r, _label:s.label, stepId:s.id, matchFormat:fmtD.label};
+// Apply crisis effects
+if(crisis){
+if(crisis.wrestler && [‘injury’,‘walkout’,‘rumble_chaos’,‘title_vacated’,‘wm_threat’,‘injury_surprise’].some(x=>crisis.id.includes(x)||crisis.id===x)){
+STATE.roster = STATE.roster.map(w => w.id===crisis.wrestler.id ? {…w,status:‘injured’} : w);
+}
+if(crisis.wrestler && [‘return’,‘pop’,‘heat’].some(x=>crisis.id.includes(x))){
+STATE.roster = STATE.roster.map(w => w.id===crisis.wrestler.id ? {…w,status:‘active’,mom:clamp(w.mom+15)} : w);
+}
+}
+// Apply momentum + title change
+STATE.roster = STATE.roster.map(w => {
+const e = weekPlan.find(p=>p.wid===w.id);
+if(!e?.action) return w;
+return {…w, mom:clamp(w.mom + Math.round(e.action.action.mom/2))};
+});
+STATE.roster = applyTitleChange(STATE.roster, titleChange);
+weekResults.push(enriched); allResults.push(enriched);
+STATE.globalStars.push(r.stars);
+lastResult = enriched; crisis = null; ppvStip = null; titleChange = null;
+matchFormat = {format:‘singles’,participants:[],winnerId:null};
+const next = step + 1;
+if(next >= road.length){ phase=‘final’; loading=false; rebuild(); }
+else {
+step = next; initWeekPlan(); loading=false; rebuild();
+setTimeout(()=>maybeCrisis(next), 200);
+}
+}
+
+function doRestart(){
+phase=‘intro’; weekResults=[]; step=0; plan=null; crisis=null;
+allResults=[]; lastResult=null; ppvStip=null;
+matchFormat={format:‘singles’,participants:[],winnerId:null};
+initWeekPlan(); rebuild();
+}
+
+// ── Action picker for road mode ──
+let currentPickerOverlay = null;
+function showActionPicker(wid){
+if(currentPickerOverlay) currentPickerOverlay.remove();
+const w = STATE.roster.find(r=>r.id===wid);
+const entry = weekPlan.find(e=>e.wid===wid);
+if(!w||!entry) return;
+const content = mkActionPicker(w, entry.role, (cat, action) => {
+weekPlan = weekPlan.map(e => e.wid===wid ? {…e, action:{cat,action}} : e);
+closeActionPicker(); rebuild();
+}, closeActionPicker, t, STATE.promo);
+currentPickerOverlay = mkSheet(null, content, closeActionPicker, t);
+currentPickerOverlay.style.zIndex = ‘300’;
+document.body.appendChild(currentPickerOverlay);
+}
+function closeActionPicker(){ if(currentPickerOverlay){currentPickerOverlay.remove();currentPickerOverlay=null;} }
+
+function rebuild(){
+render(mkPageWrap(t, buildUI()));
+}
+
+function buildUI(){
+const wrap = div({style:{maxWidth:‘1100px’,margin:‘0 auto’,padding:‘20px 14px 100px’}});
+
+```
+if(phase === 'intro') return buildIntro();
+if(phase === 'gen') return buildGen();
+if(phase === 'final') return buildFinal();
+
+// Active phase
+const avg = weekResults.length ? (weekResults.reduce((s,r)=>s+r.stars,0)/weekResults.length).toFixed(1) : '—';
+const extras = [
+  mkBtn(showPlan?'Cacher':'Plan IA', () => {showPlan=!showPlan;rebuild();}, {t, variant:'ghost', small:true}),
+];
+if(weekResults.length){
+  const avgBadge = div({style:{background:`${t.alt}12`,border:`1px solid ${t.alt}33`,borderRadius:'6px',padding:'4px 9px',display:'flex',gap:'4px',alignItems:'center'}});
+  avgBadge.appendChild(mkStars(parseFloat(avg)||0,10,t.alt));
+  avgBadge.appendChild(span({style:{color:t.alt,fontFamily:t.font,fontSize:'13px'}},avg));
+  extras.push(avgBadge);
+}
+wrap.appendChild(mkNavBar(`🎲 Road to ${finalPPV}`, goHome, t, extras));
+
+// Timeline
+const timelineWrap = div({cls:'timeline-wrap'});
+const timeline = div({cls:'timeline'});
+road.forEach((s,i) => {
+  const done = i<step, isCur = i===step, isPpv = s.type==='ppv';
+  const res = weekResults.find(r=>r.stepId===s.id);
+  const bc = isCur?t.accent:done?(res?.stars>=4?'#00e5aa':res?.stars>=3?'#f5c518':'#ff2244'):'#111';
+  const cell = div({style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',minWidth:isPpv?'68px':'40px'}});
+  const box = div({style:{
+    width:'100%', height:isPpv?'24px':'20px', borderRadius:'4px',
+    background:isCur?`${t.accent}14`:done?`${bc}12`:'#ffffff03',
+    border:`1.5px solid ${bc}`, display:'flex',alignItems:'center',justifyContent:'center',transition:'all .3s'
+  }});
+  if(done&&res) box.appendChild(span({style:{fontSize:'8px',color:bc,fontFamily:t.font}},`${res.stars}★`));
+  else if(isCur) box.appendChild(span({style:{color:t.accent,fontSize:'9px',animation:'pulse .7s infinite alternate'}},'▶'));
+  else box.appendChild(span({style:{color:'#1a1a1a',fontSize:'7px',fontFamily:t.font}},isPpv?'PPV':'—'));
+  cell.appendChild(box);
+  cell.appendChild(div({style:{color:isCur?t.accent:done?'#444':'#1a1a1a',fontSize:'6px',textAlign:'center',fontFamily:t.font,lineHeight:'1.2',maxWidth:isPpv?'68px':'40px'}},s.label||''));
+  timeline.appendChild(cell);
+});
+timelineWrap.appendChild(timeline);
+wrap.appendChild(timelineWrap);
+
+// Plan reveal
+if(showPlan && plan){
+  const planSurf = mkSurface(t, {marginBottom:'12px',borderColor:`${t.accent}33`,animation:'slideUp .3s ease'});
+  planSurf.appendChild(mkLabel('🤖 Plan IA (secret)', t.accent));
+  planSurf.appendChild(div({style:{color:'#666',fontSize:'12px',lineHeight:'1.7',marginBottom:'8px'}},plan.narrative));
+  const chaosBox = div({style:{background:'#ff224408',border:'1px solid #ff224418',borderRadius:'8px',padding:'10px'}});
+  chaosBox.appendChild(mkLabel('💥 Crise initiale','#ff2244'));
+  chaosBox.appendChild(div({style:{color:'#f5a0a8',fontSize:'12px',marginBottom:'3px'}},plan.chaos?.what));
+  chaosBox.appendChild(div({style:{color:'#555',fontSize:'11px',fontStyle:'italic'}},plan.chaos?.impact));
+  planSurf.appendChild(chaosBox);
+  wrap.appendChild(planSurf);
+}
+
+// Crisis banner
+if(crisis){
+  const sc = sevColor(crisis.sev);
+  const crisisBox = div({style:{background:`${sc}08`,border:`2px solid ${sc}`,borderRadius:'10px',padding:'14px',marginBottom:'12px',animation:'shakeIn .5s ease'}});
+  const crow = div({style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'8px'}});
+  crow.appendChild(span({style:{fontSize:'26px',flexShrink:'0'}},crisis.icon));
+  const cinfo = div({});
+  cinfo.appendChild(div({style:{color:sc,fontFamily:t.font,fontSize:'13px',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'5px'}},crisis.title));
+  cinfo.appendChild(div({style:{color:'#ddd',fontSize:'13px',lineHeight:'1.7'}},crisis.desc));
+  crow.appendChild(cinfo);
+  crisisBox.appendChild(crow);
+  wrap.appendChild(crisisBox);
+}
+
+// Last result
+if(lastResult) wrap.appendChild(mkCrowdResult(lastResult, t));
+
+// Current step header
+const cur = road[step];
+const stepSurf = mkSurface(t, {marginBottom:'10px', borderColor:cur?.type==='ppv'?`${t.accent}55`:t.border});
+const stepRow = div({style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:cur?.type==='ppv'?'10px':'0'}});
+const stepLeft = div({cls:'flex-row'});
+stepLeft.appendChild(mkTag(cur?.type==='ppv'?'🏆 PPV':'📅 Semaine', cur?.type==='ppv'?t.alt:t.accent));
+stepLeft.appendChild(span({style:{color:'#fff',fontFamily:t.font,fontSize:'15px',letterSpacing:'3px',textTransform:'uppercase'}},cur?.label||''));
+stepRow.appendChild(stepLeft);
+stepRow.appendChild(span({style:{color:'#222',fontSize:'10px',fontFamily:t.font}},`${step+1}/${road.length}`));
+stepSurf.appendChild(stepRow);
+
+// PPV stip selector
+if(cur?.type==='ppv'){
+  if(cur.specialStip){
+    const specialBox = div({style:{marginBottom:'10px'}});
+    specialBox.appendChild(mkLabel('Match principal imposé',t.alt));
+    const sBox = div({style:{background:`${t.alt}0a`,border:`2px solid ${t.alt}44`,borderRadius:'9px',padding:'10px 13px',display:'flex',gap:'10px',alignItems:'center'}});
+    sBox.appendChild(span({style:{fontSize:'20px'}},cur.specialStip.icon));
+    const sInfo = div({});
+    sInfo.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:'13px',letterSpacing:'2px',fontWeight:'700'}},cur.specialStip.label));
+    sBox.appendChild(sInfo);
+    specialBox.appendChild(sBox);
+    stepSurf.appendChild(specialBox);
+  }
+  stepSurf.appendChild(mkLabel('Stipulation match secondaire'));
+  const stipGrid = div({style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(118px,1fr))',gap:'5px'}});
+  getStips(STATE.promo).forEach(s => {
+    const card = div({style:{
+      background:ppvStip===s.id?`${t.accent}14`:t.surface,
+      border:`1.5px solid ${ppvStip===s.id?t.accent:t.border}`,
+      borderRadius:'7px', padding:'7px 9px', cursor:'pointer',
+      display:'flex', alignItems:'center', gap:'5px', transition:'all .12s'
+    }});
+    card.appendChild(span({style:{fontSize:'11px'}},s.icon));
+    card.appendChild(span({style:{color:ppvStip===s.id?t.accent:'#aaa',fontSize:'10px',fontWeight:'700'}},s.label));
+    card.addEventListener('click', () => { ppvStip=s.id; rebuild(); });
+    stipGrid.appendChild(card);
+  });
+  stepSurf.appendChild(stipGrid);
+}
+wrap.appendChild(stepSurf);
+
+// Action grid
+const mob = isMobile();
+if(mob){
+  weekPlan.forEach(entry => {
+    const w = STATE.roster.find(r=>r.id===entry.wid);
+    if(!w) return;
+    const c = rc(entry.role);
+    const row = div({style:{marginBottom:'7px'}});
+    const wrow = div({style:{background:t.surface,border:`1px solid ${c}18`,borderRadius:'8px',padding:'9px 11px',display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}});
+    wrow.appendChild(div({style:{width:'3px',height:'20px',borderRadius:'2px',background:c,flexShrink:'0'}}));
+    const winfo = div({style:{flex:'1'}});
+    winfo.appendChild(div({style:{color:'#ccc',fontFamily:t.font,fontSize:'12px',textTransform:'uppercase'}},w.short+(w.title?' 🏆':'')));
+    wrow.appendChild(winfo);
+    const roleRow = div({style:{display:'flex',gap:'2px'}});
+    ['face','heel','tweener'].forEach(r => {
+      const rb = btn({style:{padding:'2px 5px',fontSize:'7px',textTransform:'uppercase',background:entry.role===r?`${rc(r)}14`:'none',border:`1px solid ${entry.role===r?rc(r):t.border}`,color:entry.role===r?rc(r):'#2a2a3a',borderRadius:'3px'}},r);
+      rb.addEventListener('click', () => {
+        weekPlan = weekPlan.map(e=>e.wid===entry.wid?{...e,role:r}:e);
+        STATE.roster = STATE.roster.map(wr=>wr.id===entry.wid?{...wr,role:r}:wr);
+        rebuild();
+      });
+      roleRow.appendChild(rb);
+    });
+    wrow.appendChild(roleRow);
+    row.appendChild(wrow);
+    if(entry.action){
+      const actRow = div({style:{background:`${c}0a`,border:`1.5px solid ${c}33`,borderRadius:'8px',padding:'9px 11px',display:'flex',gap:'8px',alignItems:'center',cursor:'pointer'}});
+      actRow.appendChild(span({style:{fontSize:'14px'}},getActs(STATE.promo)[entry.action.cat]?.icon||''));
+      const ainfo = div({style:{flex:'1'}});
+      ainfo.appendChild(div({style:{color:c,fontSize:'11px',fontWeight:'700'}},entry.action.action.label));
+      actRow.appendChild(ainfo);
+      actRow.addEventListener('click', () => showActionPicker(entry.wid));
+      const clearBtn = btn({style:{background:'none',border:`1px solid ${t.border}`,color:'#555',width:'22px',height:'22px',borderRadius:'4px',fontSize:'10px',flexShrink:'0'}},'×');
+      clearBtn.addEventListener('click', e => { e.stopPropagation(); weekPlan=weekPlan.map(en=>en.wid===entry.wid?{...en,action:null}:en); rebuild(); });
+      actRow.appendChild(clearBtn);
+      row.appendChild(actRow);
+    } else {
+      const addBtn = btn({style:{width:'100%',padding:'10px',background:t.surface,border:`1px dashed ${t.border}`,borderRadius:'8px',color:'#2a2a3a',fontSize:'12px'}},'+ Ajouter une action');
+      addBtn.addEventListener('click', () => showActionPicker(entry.wid));
+      row.appendChild(addBtn);
+    }
+    wrap.appendChild(row);
+  });
+} else {
+  // Desktop grid
+  const hdr = div({cls:'action-grid-header'});
+  ['SUPERSTAR','ACTION','RÔLE'].forEach((h,i) => {
+    hdr.appendChild(div({style:{color:'#222',fontSize:'8px',letterSpacing:'2px',fontFamily:t.font,paddingBottom:'4px',borderBottom:`1px solid ${t.border}`,textAlign:i===2?'center':'left'}},h));
+  });
+  wrap.appendChild(hdr);
+  weekPlan.forEach(entry => {
+    const w = STATE.roster.find(r=>r.id===entry.wid);
+    if(!w) return;
+    const c = rc(entry.role);
+    const row = div({cls:'action-grid-row'});
+    // Superstar cell
+    const wCell = div({style:{background:t.surface,border:`1px solid ${c}1a`,borderRadius:'8px',padding:'8px 10px',display:'flex',flexDirection:'column',gap:'4px'}});
+    wCell.appendChild(div({style:{color:'#ccc',fontFamily:t.font,fontSize:'10px',textTransform:'uppercase'}},w.short+(w.title?' 🏆':'')));
+    const bars = div({style:{display:'flex',gap:'3px'}});
+    bars.appendChild(mkMiniBar('MOM',w.mom,t.accent));
+    bars.appendChild(mkMiniBar('POP',w.pop,'#00e5aa'));
+    wCell.appendChild(bars);
+    row.appendChild(wCell);
+    // Action cell
+    if(entry.action){
+      const aCell = div({style:{background:`${c}0a`,border:`1.5px solid ${c}33`,borderRadius:'8px',padding:'8px 10px',cursor:'pointer',minHeight:'70px'}});
+      aCell.appendChild(span({style:{fontSize:'13px'}},getActs(STATE.promo)[entry.action.cat]?.icon||''));
+      aCell.appendChild(div({style:{color:c,fontSize:'11px',fontWeight:'700',marginTop:'3px'}},entry.action.action.label));
+      aCell.addEventListener('click', () => showActionPicker(entry.wid));
+      row.appendChild(aCell);
+    } else {
+      const addBtn = btn({style:{background:t.surface,border:`1px dashed ${t.border}`,borderRadius:'8px',minHeight:'70px',width:'100%',color:'#222',fontSize:'18px'}},'+');
+      addBtn.addEventListener('click', () => showActionPicker(entry.wid));
+      row.appendChild(addBtn);
+    }
+    // Role cell
+    const roleCell = div({style:{display:'flex',flexDirection:'column',gap:'3px',justifyContent:'center'}});
+    ['face','heel','tweener'].forEach(r => {
+      const rb = btn({style:{flex:'1',padding:'3px 4px',fontSize:'7px',textTransform:'uppercase',background:entry.role===r?`${rc(r)}14`:'none',border:`1px solid ${entry.role===r?rc(r):t.border}`,color:entry.role===r?rc(r):'#2a2a3a',borderRadius:'3px',fontFamily:t.font}},r);
+      rb.addEventListener('click', () => {
+        weekPlan=weekPlan.map(e=>e.wid===entry.wid?{...e,role:r}:e);
+        STATE.roster=STATE.roster.map(wr=>wr.id===entry.wid?{...wr,role:r}:wr);
+        rebuild();
+      });
+      roleCell.appendChild(rb);
+    });
+    row.appendChild(roleCell);
+    wrap.appendChild(row);
+  });
+}
+
+// Title change + Submit
+wrap.appendChild(buildTitleChangePanel());
+wrap.appendChild(div({style:{marginTop:'12px'}}));
+wrap.lastChild.appendChild(mkBtn(loading?'⏳ La foule réagit…':`📣 Soumettre — ${cur?.label}`, doSubmitWeek, {t, full:true, disabled:loading}));
+return wrap;
+
+function buildTitleChangePanel(){
+  const surf = mkSurface(t, {marginBottom:'10px'});
+  const enabled = titleChange !== null;
+  const champions = STATE.roster.filter(w=>w.title&&w.status==='active');
+  const row = div({style:{display:'flex',alignItems:'center',justifyContent:'space-between'}});
+  const left = div({style:{display:'flex',alignItems:'center',gap:'8px'}});
+  left.appendChild(span({style:{fontSize:'18px'}},'🏆'));
+  const linfo = div({});
+  linfo.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:'11px',letterSpacing:'2px',textTransform:'uppercase'}},'Changement de titre'));
+  left.appendChild(linfo);
+  row.appendChild(left);
+  const toggleBtn = btn({style:{background:enabled?`${t.alt}18`:'none',border:`1.5px solid ${enabled?t.alt:t.border}`,color:enabled?t.alt:'#444',borderRadius:'20px',padding:'5px 14px',fontSize:'11px',fontFamily:t.font,fontWeight:'700'}},enabled?'OUI':'NON');
+  toggleBtn.addEventListener('click', () => {
+    titleChange = enabled ? null : {fromId:champions[0]?.id||null,toId:null};
+    rebuild();
+  });
+  row.appendChild(toggleBtn);
+  surf.appendChild(row);
+  return surf;
+}
+```
+
+}
+
+function buildIntro(){
+const wrap = div({style:{maxWidth:‘620px’,margin:‘0 auto’,padding:‘32px 14px’,textAlign:‘center’}});
+wrap.appendChild(mkNavBar(`🎲 Road to ${finalPPV}`, goHome, t));
+wrap.appendChild(div({style:{fontFamily:t.font,fontSize:‘clamp(1.8rem,7vw,3.5rem)’,color:t.alt,letterSpacing:‘5px’,lineHeight:’.85’,marginBottom:‘20px’,textTransform:‘uppercase’,textShadow:`0 0 20px ${t.alt}33`}},`ROAD TO ${finalPPV}`));
+const surf = mkSurface(t, {textAlign:‘left’,marginBottom:‘20px’});
+[{i:‘🤖’,tx:“L’IA génère un plan : vainqueur, feuds, card finale.”},{i:‘💥’,tx:“Elle déclenche une crise qui brise son propre plan.”},{i:‘📅’,tx:“Tu books chaque semaine avec la grille d’actions.”},{i:‘🎲’,tx:“Des crises aléatoires surgissent. Adapte-toi.”},{i:‘📣’,tx:`La foule note chaque étape jusqu'à ${finalPPV}.`}].forEach(({i,tx}) => {
+const row = div({style:{display:‘flex’,gap:‘10px’,alignItems:‘flex-start’,marginBottom:‘8px’}});
+row.appendChild(span({style:{fontSize:‘16px’,flexShrink:‘0’}},i));
+row.appendChild(div({style:{color:’#666’,fontSize:‘12px’,lineHeight:‘1.6’}},tx));
+surf.appendChild(row);
+});
+wrap.appendChild(surf);
+wrap.appendChild(mkBtn(‘🎲 Lancer le chaos’, doStart, {t}));
+return wrap;
+}
+
+function buildGen(){
+const wrap = div({style:{textAlign:‘center’,padding:‘100px 20px’}});
+wrap.appendChild(div({style:{fontSize:‘44px’,animation:‘spin 2s linear infinite’,marginBottom:‘14px’}},‘⚙️’));
+wrap.appendChild(div({style:{color:t.accent,fontFamily:t.font,fontSize:‘17px’,letterSpacing:‘4px’,textTransform:‘uppercase’}},“L’IA construit son plan…”));
+return wrap;
+}
+
+function buildFinal(){
+const avg = weekResults.length ? (weekResults.reduce((s,r)=>s+r.stars,0)/weekResults.length).toFixed(1) : ‘0’;
+const wrap = div({style:{maxWidth:‘680px’,margin:‘0 auto’,padding:‘26px 14px 80px’}});
+wrap.appendChild(mkNavBar(`🏆 Bilan — ${finalPPV}`, goHome, t));
+const scoreWrap = div({style:{textAlign:‘center’,marginBottom:‘20px’}});
+scoreWrap.appendChild(div({style:{color:t.alt,fontFamily:t.font,fontSize:‘clamp(3rem,11vw,5rem)’,lineHeight:‘1’,textShadow:`0 0 20px ${t.alt}44`}},avg));
+scoreWrap.appendChild(div({style:{color:’#444’,fontSize:‘12px’,fontFamily:t.font,marginBottom:‘6px’}},`/ 5 — ROAD TO ${finalPPV.toUpperCase()}`));
+scoreWrap.appendChild(mkStars(parseFloat(avg)||0,22,t.alt));
+wrap.appendChild(scoreWrap);
+if(plan){
+const planSurf = mkSurface(t, {marginBottom:‘12px’});
+planSurf.appendChild(mkLabel(‘Le plan secret du booking’,t.accent));
+planSurf.appendChild(div({style:{color:’#666’,fontSize:‘12px’,lineHeight:‘1.7’,marginBottom:‘8px’}},plan.narrative));
+const chaosBox = div({style:{background:’#ff224408’,border:‘1px solid #ff224418’,borderRadius:‘8px’,padding:‘10px’}});
+chaosBox.appendChild(mkLabel(‘💥 Crise initiale’,’#ff2244’));
+chaosBox.appendChild(div({style:{color:’#f5a0a8’,fontSize:‘12px’}},plan.chaos?.what));
+planSurf.appendChild(chaosBox);
+wrap.appendChild(planSurf);
+}
+const resultsList = div({style:{display:‘flex’,flexDirection:‘column’,gap:‘4px’,marginBottom:‘14px’}});
+weekResults.forEach(r => {
+const row = div({style:{background:t.surface,border:`1px solid ${r.stars>=4?'#00e5aa':r.stars>=3?'#f5c518':'#ff2244'}18`,borderRadius:‘8px’,padding:‘8px 12px’,display:‘flex’,gap:‘10px’,alignItems:‘center’}});
+row.appendChild(div({style:{color:’#444’,fontSize:‘11px’,minWidth:‘100px’,fontFamily:t.font}},r._label||’’));
+row.appendChild(mkStars(r.stars,10,t.alt));
+row.appendChild(div({style:{color:’#444’,fontSize:‘10px’,flex:‘1’}},r.verdict));
+resultsList.appendChild(row);
+});
+wrap.appendChild(resultsList);
+wrap.appendChild(mkBtn(‘🔁 Nouvelle Route’, doRestart, {t, full:true}));
+return wrap;
+}
+
+return mkPageWrap(t, buildUI());
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+render(screenPromo());
+</script>
+
+</body>
+</html>
